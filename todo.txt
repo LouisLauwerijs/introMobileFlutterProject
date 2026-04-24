@@ -3,8 +3,9 @@ Must haves:
 DONE 1) Registratie
     Gebruikers kunnen zich in de app registreren met hun e-mail en een paswoord.
 
+ADD GOOGLE MAPS API KEY
 2) Toestellen Aanbieden:
-    - Verhuurders kunnen hun huishoudelijke toestellen toevoegen, voorzien van een beschrijving, categorie, foto, prijs, en beschikbaarheid.
+    DONE - Verhuurders kunnen hun huishoudelijke toestellen toevoegen, voorzien van een beschrijving, categorie, foto, prijs, en beschikbaarheid.
     - De toestellen kunnen op basis van categorie of locatie worden bekeken door potentiële huurders.
 
 3) Toestellen Zoeken en Huren:
@@ -24,3 +25,7 @@ Nice to haves:
 
 2) Herinneringen en Notificaties:
         Automatische herinneringen worden verstuurd, bijvoorbeeld voor het ophalen van toestellen of het einde van de huurperiode.
+
+----------
+
+Inspiratie app: Peerby, Nederlandse app die niet op de playstore staat...
