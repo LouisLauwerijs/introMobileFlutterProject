@@ -1,0 +1,26 @@
+Must haves:
+
+DONE 1) Registratie
+    Gebruikers kunnen zich in de app registreren met hun e-mail en een paswoord.
+
+2) Toestellen Aanbieden:
+    - Verhuurders kunnen hun huishoudelijke toestellen toevoegen, voorzien van een beschrijving, categorie, foto, prijs, en beschikbaarheid.
+    - De toestellen kunnen op basis van categorie of locatie worden bekeken door potentiële huurders.
+
+3) Toestellen Zoeken en Huren:
+    - Huurders kunnen door het aanbod bladeren op basis van hun locatie of categorie.
+    - Ze kunnen een toestel reserveren voor een bepaalde periode.
+
+4) Reserverings- en Verhuurbeheer:
+    - Verhuurders beheren reserveringen via een gebruiksvriendelijk dashboard.
+    - Huurders hebben een overzicht van hun reserveringen.
+
+----------
+
+Nice to haves:
+
+1) Beoordelingen en Verificaties:
+    Gebruikers kunnen elkaar beoordelen na elke transactie.
+
+2) Herinneringen en Notificaties:
+        Automatische herinneringen worden verstuurd, bijvoorbeeld voor het ophalen van toestellen of het einde van de huurperiode.
