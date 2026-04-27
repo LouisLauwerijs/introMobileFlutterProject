@@ -19,10 +19,16 @@ class DeviceService {
     required double price,
     required GeoPoint location,
     required String city,
+    required String locationName,
   }) async {
     try {
       // Het unieke nummer van de ingelogde gebruiker ophalen
       String uid = _auth.currentUser!.uid;
+
+      // De naam van de verhuurder ophalen uit de 'users' collectie
+      DocumentSnapshot userDoc = await _firestore.collection('users').doc(uid).get();
+      String ownerName = (userDoc.data() as Map<String, dynamic>?)?['name'] ?? 'Onbekende verhuurder';
+
       // Een nieuw, uniek nummer voor dit apparaat laten aanmaken
       String deviceId = _firestore.collection('devices').doc().id;
 
@@ -35,6 +41,7 @@ class DeviceService {
       // Alle gegevens opslaan in de database (Firestore)
       await _firestore.collection('devices').doc(deviceId).set({
         'ownerId': uid,
+        'ownerName': ownerName,
         'name': name,
         'description': description,
         'category': category,
@@ -43,6 +50,7 @@ class DeviceService {
         'isAvailable': true, // Standaard is een nieuw apparaat direct beschikbaar
         'location': location,
         'city': city,
+        'locationName': locationName,
         'createdAt': FieldValue.serverTimestamp(), // De tijd van opslaan automatisch toevoegen
       });
     } catch (e) {
@@ -84,5 +92,15 @@ class DeviceService {
     await _firestore.collection('devices').doc(deviceId).update({
       'isAvailable': isAvailable,
     });
+  }
+
+  // Functie om een apparaat te verwijderen (unlisten)
+  Future<void> deleteDevice(String deviceId) async {
+    try {
+      await _firestore.collection('devices').doc(deviceId).delete();
+    } catch (e) {
+      print('Fout bij verwijderen apparaat: $e');
+      rethrow;
+    }
   }
 }

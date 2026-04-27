@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class Device {
   final String id;             // Het unieke nummer van dit apparaat in de database
   final String ownerId;        // Het unieke nummer van de persoon die dit apparaat verhuurt
+  final String ownerName;      // De naam van de persoon die dit apparaat verhuurt
   final String name;           // De naam van het apparaat (bijv. "Boormachine")
   final String description;    // Een korte uitleg over het apparaat
   final String category;       // De categorie (bijv. "Gereedschap" of "Keuken")
@@ -13,11 +14,13 @@ class Device {
   final bool isAvailable;      // Is het apparaat op dit moment beschikbaar? (Ja/Nee)
   final GeoPoint location;     // De exacte GPS-coördinaten van het apparaat
   final String city;           // De stad waar het apparaat zich bevindt
+  final String locationName;   // De volledige adresnaam van de locatie
 
   // Dit is de 'constructeur': die vertelt de app dat al deze gegevens verplicht zijn
   Device({
     required this.id,
     required this.ownerId,
+    required this.ownerName,
     required this.name,
     required this.description,
     required this.category,
@@ -26,12 +29,14 @@ class Device {
     required this.isAvailable,
     required this.location,
     required this.city,
+    required this.locationName,
   });
 
   // Deze functie zet een apparaat om in een formaat dat de database begrijpt
   Map<String, dynamic> toMap() {
     return {
       'ownerId': ownerId,
+      'ownerName': ownerName,
       'name': name,
       'description': description,
       'category': category,
@@ -40,6 +45,7 @@ class Device {
       'isAvailable': isAvailable,
       'location': location,
       'city': city,
+      'locationName': locationName,
     };
   }
 
@@ -49,6 +55,7 @@ class Device {
     return Device(
       id: doc.id,
       ownerId: data['ownerId'] ?? '',
+      ownerName: data['ownerName'] ?? 'Onbekende verhuurder',
       name: data['name'] ?? '',
       description: data['description'] ?? '',
       category: data['category'] ?? '',
@@ -57,6 +64,7 @@ class Device {
       isAvailable: data['isAvailable'] ?? true,
       location: data['location'] ?? const GeoPoint(0, 0),
       city: data['city'] ?? '',
+      locationName: data['locationName'] ?? '',
     );
   }
 }

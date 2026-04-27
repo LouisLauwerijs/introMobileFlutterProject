@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'device_model.dart';
 import 'device_service.dart';
 
@@ -38,10 +39,47 @@ class DeviceDetailsPage extends StatelessWidget {
     }
   }
 
+  // Functie om de bevestigingsdialoog te tonen voor het verwijderen
+  void _showDeleteConfirmation(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Toestel Verwijderen'),
+          content: const Text('Weet je zeker dat je dit toestel wilt verwijderen uit de lijst?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Annuleren'),
+            ),
+            TextButton(
+              onPressed: () async {
+                await DeviceService().deleteDevice(device.id);
+                if (context.mounted) {
+                  Navigator.pop(context); // Sluit dialoog
+                  Navigator.pop(context); // Terug naar home
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Toestel succesvol verwijderd')),
+                  );
+                }
+              },
+              child: const Text('Verwijderen', style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    final bool isOwner = currentUser != null && currentUser.uid == device.ownerId;
+
     return Scaffold(
-      appBar: AppBar(title: Text(device.category)),
+      appBar: AppBar(
+        title: Text(device.category),
+      ),
       body: SingleChildScrollView( // Zorgt ervoor dat je naar beneden kunt scrollen als de tekst lang is
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -76,6 +114,18 @@ class DeviceDetailsPage extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 16),
+                  // Naam van de verhuurder
+                  Row(
+                    children: [
+                      const Icon(Icons.person, color: Colors.blue),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Aangeboden door: ${device.ownerName}',
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
                   // Naam van het apparaat
                   Text(
                     device.name,
@@ -91,11 +141,11 @@ class DeviceDetailsPage extends StatelessWidget {
                   // Locatie informatie
                   Row(
                     children: [
-                      const Icon(Icons.location_on, color: Colors.grey),
+                      const Icon(Icons.location_on, color: Colors.red),
                       const SizedBox(width: 4),
                       Text(
                         device.city,
-                        style: const TextStyle(fontSize: 16, color: Colors.grey),
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
@@ -123,24 +173,25 @@ class DeviceDetailsPage extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 40),
-                  // De grote knop onderaan om het apparaat te huren
+                  // De grote knop onderaan: Huren voor bezoekers, Verwijderen voor de eigenaar
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: device.isAvailable
-                          ? () {
-                              // Wat er gebeurt als je op huren klikt
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Huurverzoek verstuurd!')),
-                              );
-                            }
-                          : null, // Knop is grijs als het apparaat niet beschikbaar is
+                      onPressed: isOwner
+                          ? () => _showDeleteConfirmation(context)
+                          : (device.isAvailable
+                              ? () {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Huurverzoek verstuurd!')),
+                                  );
+                                }
+                              : null),
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
-                        backgroundColor: Colors.blue,
+                        backgroundColor: isOwner ? Colors.red : Colors.blue,
                         foregroundColor: Colors.white,
                       ),
-                      child: const Text('Toestel Huren'),
+                      child: Text(isOwner ? 'Toestel Verwijderen' : 'Toestel Huren'),
                     ),
                   ),
                 ],

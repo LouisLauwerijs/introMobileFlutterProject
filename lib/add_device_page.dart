@@ -30,6 +30,7 @@ class _AddDevicePageState extends State<AddDevicePage> {
   XFile? _imageFile;
   Position? _currentPosition;
   String _city = '';
+  String _locationName = '';
   bool _isLoading = false; // Laat een draaiend wieltje zien tijdens het opslaan
 
   // De API sleutel wordt nu veilig geladen uit het secrets.dart bestand
@@ -61,8 +62,8 @@ class _AddDevicePageState extends State<AddDevicePage> {
     }
   }
 
-  // Functie die een stadnaam zoekt bij GPS-coördinaten via Google Maps
-  Future<String> _getCityFromCoordinates(double lat, double lng) async {
+  // Functie die locatiegegevens zoekt bij GPS-coördinaten via Google Maps
+  Future<Map<String, String>> _getLocationDetailsFromCoordinates(double lat, double lng) async {
     final url = 'https://maps.googleapis.com/maps/api/geocode/json?latlng=$lat,$lng&key=$_googleApiKey';
     try {
       final response = await http.get(Uri.parse(url));
@@ -70,21 +71,27 @@ class _AddDevicePageState extends State<AddDevicePage> {
         final data = json.decode(response.body);
         if (data['status'] == 'OK') {
           final results = data['results'] as List;
+          String fullAddress = results.isNotEmpty ? results[0]['formatted_address'] : 'Onbekend adres';
+          String city = 'Onbekend';
+
           for (var result in results) {
             final addressComponents = result['address_components'] as List;
             for (var component in addressComponents) {
               final types = component['types'] as List;
               if (types.contains('locality')) {
-                return component['long_name'];
+                city = component['long_name'];
+                break;
               }
             }
+            if (city != 'Onbekend') break;
           }
+          return {'city': city, 'address': fullAddress};
         }
       }
     } catch (e) {
       print('Google Geocoding error: $e');
     }
-    return 'Onbekend';
+    return {'city': 'Onbekend', 'address': 'Onbekend adres'};
   }
 
   // Functie om de huidige GPS-locatie van de telefoon op te vragen
@@ -116,11 +123,12 @@ class _AddDevicePageState extends State<AddDevicePage> {
     setState(() => _isLoading = true);
     try {
       Position position = await Geolocator.getCurrentPosition();
-      String city = await _getCityFromCoordinates(position.latitude, position.longitude);
+      Map<String, String> details = await _getLocationDetailsFromCoordinates(position.latitude, position.longitude);
 
       setState(() {
         _currentPosition = position;
-        _city = city;
+        _city = details['city']!;
+        _locationName = details['address']!;
         _isLoading = false;
       });
     } catch (e) {
@@ -143,6 +151,7 @@ class _AddDevicePageState extends State<AddDevicePage> {
           price: double.parse(_priceController.text),
           location: GeoPoint(_currentPosition!.latitude, _currentPosition!.longitude),
           city: _city,
+          locationName: _locationName,
         );
         Navigator.pop(context); // Terug naar het overzicht na succesvol toevoegen
       } catch (e) {
