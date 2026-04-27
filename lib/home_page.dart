@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
-import 'auth_service.dart';
 import 'device_service.dart';
 import 'device_model.dart';
 import 'device_card.dart';
 import 'add_device_page.dart';
 import 'device_details_page.dart';
+import 'profile_page.dart';
 
-/// De 'HomePage' is het startscherm van de app.
-/// Hier zie je de lijst met alle apparaten die mensen te leen aanbieden.
+/// De 'HomePage' is nu de container voor de navigatie onderaan.
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -16,12 +15,56 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  final DeviceService _deviceService = DeviceService(); // Toegang tot de database functies
-  String? _selectedCategory; // Welke categorie heeft de gebruiker aangeklikt?
-  String _selectedCity = ''; // Op welke stad wordt er gefilterd?
+  int _currentIndex = 0; // Welk tabblad is geselecteerd?
+
+  // De lijst met schermen waar we tussen wisselen
+  final List<Widget> _screens = [
+    const DeviceListScreen(),
+    const ProfilePage(),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: _screens[_currentIndex],
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _currentIndex,
+        selectedItemColor: Colors.blue,
+        unselectedItemColor: Colors.grey,
+        onTap: (index) {
+          setState(() {
+            _currentIndex = index;
+          });
+        },
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home),
+            label: 'Home',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person),
+            label: 'Profiel',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// De lijst met apparaten, nu als apart scherm binnen de HomePage
+class DeviceListScreen extends StatefulWidget {
+  const DeviceListScreen({super.key});
+
+  @override
+  State<DeviceListScreen> createState() => _DeviceListScreenState();
+}
+
+class _DeviceListScreenState extends State<DeviceListScreen> {
+  final DeviceService _deviceService = DeviceService();
+  String? _selectedCategory;
+  String _selectedCity = '';
   final TextEditingController _cityController = TextEditingController();
 
-  // De lijst met alle opties voor het filteren
   final List<String> _categories = [
     'Alle',
     'Gereedschap',
@@ -34,29 +77,16 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final AuthService authService = AuthService();
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Peerby - Deel Toestellen'),
-        actions: [
-          // Uitlog-knop bovenin de balk
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () async {
-              await authService.signOut();
-            },
-          ),
-        ],
       ),
       body: Column(
         children: [
-          // Het 'Filter' gedeelte bovenaan het scherm
           Padding(
             padding: const EdgeInsets.all(8.0),
             child: Column(
               children: [
-                // De horizontale rij met categorie-knopjes (Chips)
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Row(
@@ -69,7 +99,6 @@ class _HomePageState extends State<HomePage> {
                               (_selectedCategory == null && category == 'Alle'),
                           onSelected: (selected) {
                             setState(() {
-                              // Als je op een categorie tikt, verversen we de lijst
                               _selectedCategory = category == 'Alle' ? null : category;
                             });
                           },
@@ -79,7 +108,6 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                // Het tekstveld om op stad te filteren
                 TextField(
                   controller: _cityController,
                   decoration: InputDecoration(
@@ -88,7 +116,6 @@ class _HomePageState extends State<HomePage> {
                     suffixIcon: IconButton(
                       icon: const Icon(Icons.clear),
                       onPressed: () {
-                        // Knopje om het tekstveld leeg te maken
                         _cityController.clear();
                         setState(() {
                           _selectedCity = '';
@@ -99,7 +126,6 @@ class _HomePageState extends State<HomePage> {
                   ),
                   onSubmitted: (value) {
                     setState(() {
-                      // Pas de lijst aan zodra je op 'Enter' klikt
                       _selectedCity = value.trim();
                     });
                   },
@@ -107,10 +133,8 @@ class _HomePageState extends State<HomePage> {
               ],
             ),
           ),
-          // De lijst met apparaten (vult de rest van het scherm)
           Expanded(
             child: StreamBuilder<List<Device>>(
-              // We 'luisteren' naar de database met de gekozen filters
               stream: _deviceService.getDevices(
                 category: _selectedCategory,
                 city: _selectedCity.isNotEmpty ? _selectedCity : null,
@@ -119,20 +143,15 @@ class _HomePageState extends State<HomePage> {
                 if (snapshot.hasError) {
                   return Center(child: Text('Fout bij laden: ${snapshot.error}'));
                 }
-
-                // Wieltje laten draaien als we nog aan het wachten zijn op de database
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
 
                 final devices = snapshot.data ?? [];
-
-                // Melding als er geen apparaten zijn die aan de filters voldoen
                 if (devices.isEmpty) {
                   return const Center(child: Text('Geen toestellen gevonden.'));
                 }
 
-                // De daadwerkelijke lijst met 'Kaartjes' van apparaten
                 return ListView.builder(
                   padding: const EdgeInsets.all(16),
                   itemCount: devices.length,
@@ -141,7 +160,6 @@ class _HomePageState extends State<HomePage> {
                     return DeviceCard(
                       device: device,
                       onTap: () {
-                        // Tikken op een kaartje opent de details van dat apparaat
                         Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -157,7 +175,6 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
-      // De grote '+' knop rechtsonder om zelf een apparaat toe te voegen
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           Navigator.push(
@@ -165,9 +182,9 @@ class _HomePageState extends State<HomePage> {
             MaterialPageRoute(builder: (context) => const AddDevicePage()),
           );
         },
-        child: const Icon(Icons.add),
         backgroundColor: Colors.blue,
         foregroundColor: Colors.white,
+        child: const Icon(Icons.add),
       ),
     );
   }
