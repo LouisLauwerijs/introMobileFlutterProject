@@ -3,10 +3,12 @@ Must haves:
 DONE 1) Registratie
     Gebruikers kunnen zich in de app registreren met hun e-mail en een paswoord.
 
-ADD GOOGLE MAPS API KEY
-2) Toestellen Aanbieden:
+
+DONE 2) Toestellen Aanbieden:
     DONE - Verhuurders kunnen hun huishoudelijke toestellen toevoegen, voorzien van een beschrijving, categorie, foto, prijs, en beschikbaarheid.
-    - De toestellen kunnen op basis van categorie of locatie worden bekeken door potentiële huurders.
+    DONE - De toestellen kunnen op basis van categorie of locatie worden bekeken door potentiële huurders.
+
+<>
 
 3) Toestellen Zoeken en Huren:
     - Huurders kunnen door het aanbod bladeren op basis van hun locatie of categorie.
