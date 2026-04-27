@@ -6,6 +6,7 @@ import 'device_service.dart';
 import 'device_model.dart';
 import 'device_card.dart';
 import 'device_details_page.dart';
+import 'settings_page.dart';
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
@@ -17,7 +18,20 @@ class ProfilePage extends StatelessWidget {
     final DeviceService deviceService = DeviceService();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Mijn Profiel')),
+      appBar: AppBar(
+        title: const Text('Mijn Profiel'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SettingsPage()),
+              );
+            },
+          ),
+        ],
+      ),
       body: Column(
         children: [
           FutureBuilder<DocumentSnapshot>(

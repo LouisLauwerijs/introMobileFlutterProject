@@ -64,7 +64,13 @@ class _AddDevicePageState extends State<AddDevicePage> {
 
   // Functie die locatiegegevens zoekt bij GPS-coördinaten via Google Maps
   Future<Map<String, String>> _getLocationDetailsFromCoordinates(double lat, double lng) async {
-    final url = 'https://maps.googleapis.com/maps/api/geocode/json?latlng=$lat,$lng&key=$_googleApiKey';
+    String url = 'https://maps.googleapis.com/maps/api/geocode/json?latlng=$lat,$lng&key=$_googleApiKey';
+    
+    // Op Web moeten we een proxy gebruiken om CORS fouten te voorkomen
+    if (kIsWeb) {
+      url = 'https://corsproxy.io/?' + Uri.encodeComponent(url);
+    }
+
     try {
       final response = await http.get(Uri.parse(url));
       if (response.statusCode == 200) {

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'device_model.dart';
 import 'device_service.dart';
 
@@ -71,6 +72,16 @@ class DeviceDetailsPage extends StatelessWidget {
     );
   }
 
+  // Functie om de naam van de verhuurder op te halen uit Firestore
+  Future<String> _getOwnerName(String ownerId) async {
+    try {
+      final doc = await FirebaseFirestore.instance.collection('users').doc(ownerId).get();
+      return (doc.data() as Map<String, dynamic>?)?['name'] ?? 'Onbekende verhuurder';
+    } catch (e) {
+      return 'Laden...';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final currentUser = FirebaseAuth.instance.currentUser;
@@ -119,9 +130,14 @@ class DeviceDetailsPage extends StatelessWidget {
                     children: [
                       const Icon(Icons.person, color: Colors.blue),
                       const SizedBox(width: 8),
-                      Text(
-                        'Aangeboden door: ${device.ownerName}',
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                      FutureBuilder<String>(
+                        future: _getOwnerName(device.ownerId),
+                        builder: (context, snapshot) {
+                          return Text(
+                            'Aangeboden door: ${snapshot.data ?? 'Laden...'}',
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                          );
+                        },
                       ),
                     ],
                   ),
