@@ -227,8 +227,8 @@ class _AddDevicePageState extends State<AddDevicePage> {
                               SizedBox(
                                 height: 150,
                                 child: kIsWeb
-                                    ? Image.network(_imageFile!.path)
-                                    : Image.file(io.File(_imageFile!.path)),
+                                    ? Image.network(_imageFile!.path, fit: BoxFit.contain)
+                                    : Image.file(io.File(_imageFile!.path), fit: BoxFit.contain),
                               ),
                               TextButton(onPressed: _pickImage, child: const Text('Wijzig Foto')),
                             ],

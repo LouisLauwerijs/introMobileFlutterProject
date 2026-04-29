@@ -32,7 +32,7 @@ class DeviceCard extends StatelessWidget {
           base64Decode(base64String),
           height: 150,
           width: double.infinity,
-          fit: BoxFit.cover,
+          fit: BoxFit.contain,
           errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image, size: 150),
         );
       } catch (e) {
@@ -43,7 +43,7 @@ class DeviceCard extends StatelessWidget {
         photoUrl,
         height: 150,
         width: double.infinity,
-        fit: BoxFit.cover,
+        fit: BoxFit.contain,
         errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image, size: 150),
       );
     }

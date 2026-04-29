@@ -103,4 +103,30 @@ class DeviceService {
       rethrow;
     }
   }
+
+  // Functie om een apparaat te huren voor een bepaalde periode
+  Future<void> rentDevice({
+    required String deviceId,
+    required String deviceName,
+    required DateTime startDate,
+    required DateTime endDate,
+    required double totalPrice,
+  }) async {
+    try {
+      String uid = _auth.currentUser!.uid;
+
+      await _firestore.collection('rentals').add({
+        'deviceId': deviceId,
+        'deviceName': deviceName,
+        'renterId': uid,
+        'startDate': Timestamp.fromDate(startDate),
+        'endDate': Timestamp.fromDate(endDate),
+        'totalPrice': totalPrice,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      print('Fout bij huren apparaat: $e');
+      rethrow;
+    }
+  }
 }
