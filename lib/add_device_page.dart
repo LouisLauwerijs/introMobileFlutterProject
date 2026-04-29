@@ -68,7 +68,7 @@ class _AddDevicePageState extends State<AddDevicePage> {
     
     // Op Web moeten we een proxy gebruiken om CORS fouten te voorkomen
     if (kIsWeb) {
-      url = 'https://corsproxy.io/?' + Uri.encodeComponent(url);
+      url = 'https://api.allorigins.win/raw?url=' + Uri.encodeComponent(url);
     }
 
     try {

@@ -11,6 +11,9 @@ DONE 2) Toestellen Aanbieden:
 <>
 
 3) Toestellen Zoeken en Huren:
+
+    Bij ingeven van toestellen optie tussen "thuis" en "Jouw locatie"
+
     - Huurders kunnen door het aanbod bladeren op basis van hun locatie of categorie.
     - Ze kunnen een toestel reserveren voor een bepaalde periode.
 

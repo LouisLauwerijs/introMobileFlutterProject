@@ -58,7 +58,7 @@ class _SettingsPageState extends State<SettingsPage> {
     String url = 'https://maps.googleapis.com/maps/api/geocode/json?latlng=$lat,$lng&key=$_googleApiKey';
     
     if (kIsWeb) {
-      url = 'https://corsproxy.io/?' + Uri.encodeComponent(url);
+      url = 'https://api.allorigins.win/raw?url=' + Uri.encodeComponent(url);
     }
 
     try {
