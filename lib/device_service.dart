@@ -61,9 +61,14 @@ class DeviceService {
   }
 
   // Functie om de lijst met apparaten op te halen (met filters)
-  Stream<List<Device>> getDevices({String? category, String? city}) {
+  Stream<List<Device>> getDevices({String? category, String? city, bool onlyAvailable = false}) {
     // We beginnen bij de verzameling 'devices' in de database
     Query query = _firestore.collection('devices');
+
+    // Als we alleen beschikbare toestellen willen (voor het dashboard)
+    if (onlyAvailable) {
+      query = query.where('isAvailable', isEqualTo: true);
+    }
 
     // Als er een specifieke categorie is gekozen, filteren we daarop via de database
     if (category != null && category.isNotEmpty) {
@@ -115,6 +120,7 @@ class DeviceService {
     try {
       String uid = _auth.currentUser!.uid;
 
+      // 1. Voeg de huur toe aan de 'rentals' collectie
       await _firestore.collection('rentals').add({
         'deviceId': deviceId,
         'deviceName': deviceName,
@@ -124,8 +130,64 @@ class DeviceService {
         'totalPrice': totalPrice,
         'createdAt': FieldValue.serverTimestamp(),
       });
+
+      // 2. Zet het apparaat op 'niet beschikbaar' zodat het van het dashboard verdwijnt
+      await updateAvailability(deviceId, false);
+      
     } catch (e) {
       print('Fout bij huren apparaat: $e');
+      rethrow;
+    }
+  }
+
+  // Functie om alle huren van de huidige gebruiker op te halen
+  Stream<List<Map<String, dynamic>>> getUserRentals() {
+    String uid = _auth.currentUser!.uid;
+    return _firestore
+        .collection('rentals')
+        .where('renterId', isEqualTo: uid)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs.map((doc) {
+        final data = doc.data();
+        data['id'] = doc.id;
+        return data;
+      }).toList();
+    });
+  }
+
+  // Functie om een recensie toe te voegen
+  Future<void> addReview({
+    required String rentalId,
+    required String deviceId,
+    required int rating,
+    required String comment,
+  }) async {
+    try {
+      String uid = _auth.currentUser!.uid;
+
+      // De naam van de huurder ophalen
+      DocumentSnapshot userDoc = await _firestore.collection('users').doc(uid).get();
+      String renterName = (userDoc.data() as Map<String, dynamic>?)?['name'] ?? 'Anoniem';
+
+      // 1. Voeg de recensie toe aan een nieuwe collectie 'reviews'
+      await _firestore.collection('reviews').add({
+        'rentalId': rentalId,
+        'deviceId': deviceId,
+        'renterId': uid,
+        'renterName': renterName,
+        'rating': rating,
+        'comment': comment,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      // 2. Markeer de huur als 'beoordeeld' zodat de knop verdwijnt
+      await _firestore.collection('rentals').doc(rentalId).update({
+        'hasReview': true,
+      });
+    } catch (e) {
+      print('Fout bij toevoegen recensie: $e');
       rethrow;
     }
   }
