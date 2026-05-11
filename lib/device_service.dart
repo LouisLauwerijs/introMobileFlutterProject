@@ -129,4 +129,21 @@ class DeviceService {
       rethrow;
     }
   }
+
+  // Functie om alle huren van de huidige gebruiker op te halen
+  Stream<List<Map<String, dynamic>>> getUserRentals() {
+    String uid = _auth.currentUser!.uid;
+    return _firestore
+        .collection('rentals')
+        .where('renterId', isEqualTo: uid)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs.map((doc) {
+        final data = doc.data();
+        data['id'] = doc.id;
+        return data;
+      }).toList();
+    });
+  }
 }

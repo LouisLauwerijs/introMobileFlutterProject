@@ -7,6 +7,7 @@ import 'device_model.dart';
 import 'device_card.dart';
 import 'device_details_page.dart';
 import 'settings_page.dart';
+import 'rentals_page.dart';
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
@@ -76,6 +77,26 @@ class ProfilePage extends StatelessWidget {
                           onPressed: () async => await authService.signOut(),
                         ),
                       ],
+                    ),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => const RentalsPage()),
+                          );
+                        },
+                        icon: const Icon(Icons.history),
+                        label: const Text('Mijn Huren bekijken'),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ),
                     ),
                   ],
                 ),
