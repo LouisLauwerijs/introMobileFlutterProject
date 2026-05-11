@@ -120,6 +120,10 @@ class DeviceService {
     try {
       String uid = _auth.currentUser!.uid;
 
+      // De naam van de huurder ophalen
+      DocumentSnapshot userDoc = await _firestore.collection('users').doc(uid).get();
+      String renterName = (userDoc.data() as Map<String, dynamic>?)?['name'] ?? 'Anoniem';
+
       // De gegevens van het apparaat ophalen om de ownerId te weten
       DocumentSnapshot deviceDoc = await _firestore.collection('devices').doc(deviceId).get();
       String ownerId = (deviceDoc.data() as Map<String, dynamic>?)?['ownerId'] ?? '';
@@ -129,6 +133,7 @@ class DeviceService {
         'deviceId': deviceId,
         'deviceName': deviceName,
         'renterId': uid,
+        'renterName': renterName, // Naam van de huurder opslaan
         'ownerId': ownerId, // We slaan ook de eigenaar op
         'startDate': Timestamp.fromDate(startDate),
         'endDate': Timestamp.fromDate(endDate),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'device_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'user_detail_page.dart';
 
 class OwnerRentalsPage extends StatelessWidget {
   const OwnerRentalsPage({super.key});
@@ -53,6 +54,8 @@ class OwnerRentalsPage extends StatelessWidget {
               final totalPrice = rental['totalPrice'] as double;
               final deviceName = rental['deviceName'] ?? 'Onbekend apparaat';
               final deviceId = rental['deviceId'];
+              final renterName = rental['renterName'] ?? 'Onbekende huurder';
+              final renterId = rental['renterId'];
 
               return Card(
                 elevation: 2,
@@ -97,6 +100,36 @@ class OwnerRentalsPage extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 12),
+                      // Huurder informatie
+                      Row(
+                        children: [
+                          const Icon(Icons.person_outline, size: 16, color: Colors.grey),
+                          const SizedBox(width: 8),
+                          const Text('Gehuurd door: ', style: TextStyle(color: Colors.grey)),
+                          if (renterId != null)
+                            GestureDetector(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => UserDetailPage(userId: renterId, userName: renterName),
+                                  ),
+                                );
+                              },
+                              child: Text(
+                                renterName,
+                                style: const TextStyle(
+                                  color: Colors.blue,
+                                  fontWeight: FontWeight.bold,
+                                  decoration: TextDecoration.underline,
+                                ),
+                              ),
+                            )
+                          else
+                            Text(renterName),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(

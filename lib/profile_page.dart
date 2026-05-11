@@ -214,11 +214,15 @@ class ProfilePage extends StatelessWidget {
                         
                         DateTime? startDate = (rental['startDate'] as Timestamp?)?.toDate();
                         DateTime? endDate = (rental['endDate'] as Timestamp?)?.toDate();
+                        String? rName = rental['renterName'];
+                        String? rId = rental['renterId'];
 
                         return DeviceCard(
                           device: device,
                           rentalStartDate: startDate,
                           rentalEndDate: endDate,
+                          renterName: rName,
+                          renterId: rId,
                           onTap: () {
                             Navigator.push(
                               context,
