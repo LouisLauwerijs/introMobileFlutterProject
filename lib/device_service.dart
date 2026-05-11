@@ -210,11 +210,16 @@ class DeviceService {
       DocumentSnapshot userDoc = await _firestore.collection('users').doc(uid).get();
       String renterName = (userDoc.data() as Map<String, dynamic>?)?['name'] ?? 'Anoniem';
 
+      // Haal ownerId op van het apparaat
+      DocumentSnapshot deviceDoc = await _firestore.collection('devices').doc(deviceId).get();
+      String ownerId = (deviceDoc.data() as Map<String, dynamic>?)?['ownerId'] ?? '';
+
       // 1. Voeg de recensie toe aan een nieuwe collectie 'reviews'
       await _firestore.collection('reviews').add({
         'rentalId': rentalId,
         'deviceId': deviceId,
         'renterId': uid,
+        'ownerId': ownerId,
         'renterName': renterName,
         'rating': rating,
         'comment': comment,
@@ -266,5 +271,14 @@ class DeviceService {
       });
       return reviews;
     });
+  }
+
+  // Functie om ALLE recensies op te halen die over JOUW toestellen gaan
+  Stream<List<Map<String, dynamic>>> getOwnerReviews(String ownerId) {
+    return _firestore
+        .collection('reviews')
+        .where('ownerId', isEqualTo: ownerId)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map((doc) => doc.data()).toList());
   }
 }

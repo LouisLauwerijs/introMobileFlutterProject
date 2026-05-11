@@ -70,6 +70,37 @@ class ProfilePage extends StatelessWidget {
                               user?.email ?? 'Geen e-mail',
                               style: const TextStyle(fontSize: 14, color: Colors.grey),
                             ),
+                            const SizedBox(height: 4),
+                            // Toon gemiddelde score
+                            StreamBuilder<List<Map<String, dynamic>>>(
+                              stream: deviceService.getOwnerReviews(user?.uid ?? ''),
+                              builder: (context, snapshot) {
+                                if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                                  return const Text(
+                                    'Nog geen beoordelingen',
+                                    style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
+                                  );
+                                }
+
+                                final reviews = snapshot.data!;
+                                final average = reviews.fold<double>(0, (sum, r) => sum + (r['rating'] as int)) / reviews.length;
+
+                                return Row(
+                                  children: [
+                                    const Icon(Icons.star, color: Colors.orange, size: 16),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      '${average.toStringAsFixed(1)} (${reviews.length} reviews)',
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.orange,
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              },
+                            ),
                           ],
                         ),
                         const Spacer(),
