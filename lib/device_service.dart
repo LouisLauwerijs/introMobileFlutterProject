@@ -120,11 +120,16 @@ class DeviceService {
     try {
       String uid = _auth.currentUser!.uid;
 
+      // De gegevens van het apparaat ophalen om de ownerId te weten
+      DocumentSnapshot deviceDoc = await _firestore.collection('devices').doc(deviceId).get();
+      String ownerId = (deviceDoc.data() as Map<String, dynamic>?)?['ownerId'] ?? '';
+
       // 1. Voeg de huur toe aan de 'rentals' collectie
       await _firestore.collection('rentals').add({
         'deviceId': deviceId,
         'deviceName': deviceName,
         'renterId': uid,
+        'ownerId': ownerId, // We slaan ook de eigenaar op
         'startDate': Timestamp.fromDate(startDate),
         'endDate': Timestamp.fromDate(endDate),
         'totalPrice': totalPrice,
@@ -142,30 +147,54 @@ class DeviceService {
 
   // Functie om alle gehuurde items van de huidige gebruiker op te halen
   Stream<List<Map<String, dynamic>>> getUserRentals() {
-  String uid = _auth.currentUser!.uid;
-  return _firestore
-      .collection('rentals')
-      .where('renterId', isEqualTo: uid)
-      // removed .orderBy() here — sorting client-side instead
-      .snapshots()
-      .map((snapshot) {
-    final rentals = snapshot.docs.map((doc) {
-      final data = doc.data();
-      data['id'] = doc.id;
-      return data;
-    }).toList();
+    String uid = _auth.currentUser!.uid;
+    return _firestore
+        .collection('rentals')
+        .where('renterId', isEqualTo: uid)
+        .snapshots()
+        .map((snapshot) {
+      final rentals = snapshot.docs.map((doc) {
+        final data = doc.data();
+        data['id'] = doc.id;
+        return data;
+      }).toList();
 
-    // Sort by createdAt client-side — no index needed
-    rentals.sort((a, b) {
-      final aDate = a['createdAt'] as Timestamp?;
-      final bDate = b['createdAt'] as Timestamp?;
-      if (aDate == null || bDate == null) return 0;
-      return bDate.compareTo(aDate); // newest first
+      // Sorteren op datum (nieuwste eerst)
+      rentals.sort((a, b) {
+        final aDate = a['createdAt'] as Timestamp?;
+        final bDate = b['createdAt'] as Timestamp?;
+        if (aDate == null || bDate == null) return 0;
+        return bDate.compareTo(aDate);
+      });
+
+      return rentals;
     });
+  }
 
-    return rentals;
-  });
-}
+  // Functie om alle huren te zien die ANDEREN bij JOU hebben gedaan
+  Stream<List<Map<String, dynamic>>> getOwnerRentals() {
+    String uid = _auth.currentUser!.uid;
+    return _firestore
+        .collection('rentals')
+        .where('ownerId', isEqualTo: uid)
+        .snapshots()
+        .map((snapshot) {
+      final rentals = snapshot.docs.map((doc) {
+        final data = doc.data();
+        data['id'] = doc.id;
+        return data;
+      }).toList();
+
+      rentals.sort((a, b) {
+        final aDate = a['createdAt'] as Timestamp?;
+        final bDate = b['createdAt'] as Timestamp?;
+        if (aDate == null || bDate == null) return 0;
+        return bDate.compareTo(aDate);
+      });
+
+      return rentals;
+    });
+  }
 
   // Functie om een recensie toe te voegen
   Future<void> addReview({
@@ -200,5 +229,42 @@ class DeviceService {
       print('Fout bij toevoegen recensie: $e');
       rethrow;
     }
+  }
+
+  // Functie om een specifieke huur te verwijderen uit de geschiedenis
+  Future<void> deleteRental(String rentalId) async {
+    await _firestore.collection('rentals').doc(rentalId).delete();
+  }
+
+  // Functie om één specifiek apparaat op te halen via ID
+  Future<Device?> getDeviceById(String deviceId) async {
+    try {
+      DocumentSnapshot doc = await _firestore.collection('devices').doc(deviceId).get();
+      if (doc.exists) {
+        return Device.fromFirestore(doc);
+      }
+      return null;
+    } catch (e) {
+      print('Fout bij ophalen apparaat: $e');
+      return null;
+    }
+  }
+
+  // Functie om recensies van een specifiek apparaat op te halen
+  Stream<List<Map<String, dynamic>>> getDeviceReviews(String deviceId) {
+    return _firestore
+        .collection('reviews')
+        .where('deviceId', isEqualTo: deviceId)
+        .snapshots()
+        .map((snapshot) {
+      final reviews = snapshot.docs.map((doc) => doc.data()).toList();
+      reviews.sort((a, b) {
+        final aDate = a['createdAt'] as Timestamp?;
+        final bDate = b['createdAt'] as Timestamp?;
+        if (aDate == null || bDate == null) return 0;
+        return bDate.compareTo(aDate);
+      });
+      return reviews;
+    });
   }
 }
