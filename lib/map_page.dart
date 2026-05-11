@@ -15,9 +15,7 @@ class MapPage extends StatefulWidget {
 
 class _MapPageState extends State<MapPage> {
   final DeviceService _deviceService = DeviceService();
-  GoogleMapController? _mapController;
   Position? _currentPosition;
-  Set<Marker> _markers = {};
 
   @override
   void initState() {
@@ -45,26 +43,79 @@ class _MapPageState extends State<MapPage> {
       setState(() {
         _currentPosition = position;
       });
-      _mapController?.animateCamera(
-        CameraUpdate.newLatLng(
-          LatLng(position.latitude, position.longitude),
-        ),
-      );
     }
   }
 
-  void _onMapCreated(GoogleMapController controller) {
-    _mapController = controller;
-    if (_currentPosition != null) {
-      _mapController?.animateCamera(
-        CameraUpdate.newLatLng(
-          LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
-        ),
-      );
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Toestellen in de buurt'),
+      ),
+      body: StreamBuilder<List<Device>>(
+        stream: _deviceService.getDevices(onlyAvailable: true),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting && _currentPosition == null) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          final devices = snapshot.data ?? [];
+          
+          return MapView(
+            devices: devices,
+            currentPosition: _currentPosition,
+          );
+        },
+      ),
+    );
+  }
+}
+
+class MapView extends StatefulWidget {
+  final List<Device> devices;
+  final Position? currentPosition;
+
+  const MapView({
+    super.key,
+    required this.devices,
+    this.currentPosition,
+  });
+
+  @override
+  State<MapView> createState() => _MapViewState();
+}
+
+class _MapViewState extends State<MapView> {
+  GoogleMapController? _mapController;
+  Set<Marker> _markers = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _updateMarkers();
+  }
+
+  @override
+  void didUpdateWidget(MapView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Dit zorgt ervoor dat de markers DIRECT worden bijgewerkt als de lijst met devices verandert
+    if (widget.devices != oldWidget.devices) {
+      _updateMarkers();
     }
   }
 
-  // Functie om de kleine preview onderaan te tonen
+  void _updateMarkers() {
+    setState(() {
+      _markers = widget.devices.map((device) {
+        return Marker(
+          markerId: MarkerId(device.id),
+          position: LatLng(device.location.latitude, device.location.longitude),
+          onTap: () => _showDevicePreview(device),
+        );
+      }).toSet();
+    });
+  }
+
   void _showDevicePreview(Device device) {
     showModalBottomSheet(
       context: context,
@@ -87,7 +138,6 @@ class _MapPageState extends State<MapPage> {
             padding: const EdgeInsets.all(12),
             child: Row(
               children: [
-                // Kleine foto
                 ClipRRect(
                   borderRadius: BorderRadius.circular(12),
                   child: device.photoUrl.startsWith('data:image')
@@ -107,7 +157,6 @@ class _MapPageState extends State<MapPage> {
                         ),
                 ),
                 const SizedBox(width: 16),
-                // Info
                 Expanded(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -115,35 +164,23 @@ class _MapPageState extends State<MapPage> {
                     children: [
                       Text(
                         device.name,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                       Text(
                         '€${device.price.toStringAsFixed(2)} per dag',
-                        style: const TextStyle(
-                          color: Colors.blue,
-                          fontWeight: FontWeight.w600,
-                        ),
+                        style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.w600),
                       ),
                       const SizedBox(height: 4),
-                      Text(
-                        device.city,
-                        style: const TextStyle(color: Colors.grey),
-                      ),
+                      Text(device.city, style: const TextStyle(color: Colors.grey)),
                     ],
                   ),
                 ),
-                // Knop naar details
                 IconButton(
                   onPressed: () {
-                    Navigator.pop(context); // Sluit preview
+                    Navigator.pop(context);
                     Navigator.push(
                       context,
-                      MaterialPageRoute(
-                        builder: (context) => DeviceDetailsPage(device: device),
-                      ),
+                      MaterialPageRoute(builder: (context) => DeviceDetailsPage(device: device)),
                     );
                   },
                   icon: const Icon(Icons.arrow_forward_ios, color: Colors.blue),
@@ -158,42 +195,18 @@ class _MapPageState extends State<MapPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Toestellen in de buurt'),
+    return GoogleMap(
+      onMapCreated: (controller) => _mapController = controller,
+      initialCameraPosition: CameraPosition(
+        target: widget.currentPosition != null
+            ? LatLng(widget.currentPosition!.latitude, widget.currentPosition!.longitude)
+            : const LatLng(51.2194, 4.4025),
+        zoom: 13,
       ),
-      body: StreamBuilder<List<Device>>(
-        stream: _deviceService.getDevices(onlyAvailable: true),
-        builder: (context, snapshot) {
-          if (snapshot.hasData) {
-            _markers = snapshot.data!.map((device) {
-              return Marker(
-                markerId: MarkerId(device.id),
-                position: LatLng(device.location.latitude, device.location.longitude),
-                onTap: () {
-                  _showDevicePreview(device);
-                },
-                // We houden de infoWindow leeg omdat we de eigen preview gebruiken
-              );
-            }).toSet();
-          }
-
-          return GoogleMap(
-            onMapCreated: _onMapCreated,
-            initialCameraPosition: CameraPosition(
-              target: _currentPosition != null
-                  ? LatLng(_currentPosition!.latitude, _currentPosition!.longitude)
-                  : const LatLng(51.2194, 4.4025),
-              zoom: 13,
-            ),
-            myLocationEnabled: true,
-            myLocationButtonEnabled: true,
-            markers: _markers,
-            // Verberg de standaard knoppen die soms in de weg zitten
-            mapToolbarEnabled: false,
-          );
-        },
-      ),
+      myLocationEnabled: true,
+      myLocationButtonEnabled: true,
+      markers: _markers,
+      mapToolbarEnabled: false,
     );
   }
 }
