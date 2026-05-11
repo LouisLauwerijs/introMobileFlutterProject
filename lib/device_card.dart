@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'device_model.dart';
+import 'device_service.dart';
 
 /// Dit bestand maakt de 'Kaart' (Card) die je ziet in de lijst op de startpagina.
 class DeviceCard extends StatelessWidget {
@@ -51,6 +52,8 @@ class DeviceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final DeviceService deviceService = DeviceService();
+
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       elevation: 4,
@@ -59,9 +62,29 @@ class DeviceCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
-              child: _buildImage(device.photoUrl),
+            Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                  child: _buildImage(device.photoUrl),
+                ),
+                if (!device.isAvailable)
+                  Positioned(
+                    top: 10,
+                    right: 10,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withOpacity(0.8),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Text(
+                        'VERHUURD',
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10),
+                      ),
+                    ),
+                  ),
+              ],
             ),
             Padding(
               padding: const EdgeInsets.all(12.0),
@@ -82,11 +105,42 @@ class DeviceCard extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    device.name,
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          device.name,
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      StreamBuilder<List<Map<String, dynamic>>>(
+                        stream: deviceService.getDeviceReviews(device.id),
+                        builder: (context, snapshot) {
+                          if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                            return const SizedBox.shrink();
+                          }
+                          final reviews = snapshot.data!;
+                          double avgRating = reviews.map((r) => (r['rating'] as num).toDouble()).reduce((a, b) => a + b) / reviews.length;
+                          return Row(
+                            children: [
+                              const Icon(Icons.star, color: Colors.orange, size: 16),
+                              const SizedBox(width: 4),
+                              Text(
+                                avgRating.toStringAsFixed(1),
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                              ),
+                              Text(
+                                ' (${reviews.length})',
+                                style: const TextStyle(color: Colors.grey, fontSize: 12),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 2),
                   Text(

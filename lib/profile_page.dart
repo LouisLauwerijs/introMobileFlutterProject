@@ -8,6 +8,7 @@ import 'device_card.dart';
 import 'device_details_page.dart';
 import 'settings_page.dart';
 import 'rentals_page.dart';
+import 'owner_rentals_page.dart';
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
@@ -79,30 +80,47 @@ class ProfilePage extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 20),
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => const RentalsPage()),
-                          );
-                        },
-                        icon: const Icon(Icons.history),
-                        label: const Text('Mijn gehuurde items bekijken'),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (context) => const HuurgeschiedenisPage()),
+                              );
+                            },
+                            icon: const Icon(Icons.history),
+                            label: const Text('Huurgeschiedenis'),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
                           ),
                         ),
-                      ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (context) => const OwnerRentalsPage()),
+                              );
+                            },
+                            icon: const Icon(Icons.assignment),
+                            label: const Text('Mijn Verhuur'),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              );
-            },
-          ),
+                    ],
+                    ),
+                    );
+                    },
+                    ),
+
           const Divider(),
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 20.0, vertical: 10),

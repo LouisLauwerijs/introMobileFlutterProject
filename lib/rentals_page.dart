@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'device_service.dart';
+import 'device_details_page.dart';
+import 'device_model.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-class RentalsPage extends StatelessWidget {
-  const RentalsPage({super.key});
+class HuurgeschiedenisPage extends StatelessWidget {
+  const HuurgeschiedenisPage({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -12,7 +14,7 @@ class RentalsPage extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Mijn Huren'),
+        title: const Text('Huurgeschiedenis'),
       ),
       body: StreamBuilder<List<Map<String, dynamic>>>(
         stream: deviceService.getUserRentals(),
@@ -52,6 +54,7 @@ class RentalsPage extends StatelessWidget {
               final endDate = (rental['endDate'] as Timestamp).toDate();
               final totalPrice = rental['totalPrice'] as double;
               final deviceName = rental['deviceName'] ?? 'Onbekend apparaat';
+              final deviceId = rental['deviceId'];
               final hasReview = rental['hasReview'] ?? false;
 
               return Card(
@@ -60,99 +63,154 @@ class RentalsPage extends StatelessWidget {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              deviceName,
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
+                child: InkWell(
+                  onTap: () async {
+                    Device? device = await deviceService.getDeviceById(deviceId);
+                    if (device != null && context.mounted) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => DeviceDetailsPage(device: device),
+                        ),
+                      );
+                    } else if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Dit toestel is niet meer beschikbaar.')),
+                      );
+                    }
+                  },
+                  borderRadius: BorderRadius.circular(12),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                deviceName,
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
+                            IconButton(
+                              icon: const Icon(Icons.delete_outline, color: Colors.red),
+                              onPressed: () => _showDeleteDialog(context, rental['id']),
                             ),
-                            decoration: BoxDecoration(
-                              color: Colors.blue.shade50,
-                              borderRadius: BorderRadius.circular(8),
+                          ],
+                        ),
+                        const Divider(height: 24),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Icon(Icons.calendar_today, size: 16, color: Colors.grey),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'Van: ${DateFormat('dd/MM/yyyy').format(startDate)}',
+                                      style: const TextStyle(color: Colors.black87),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  children: [
+                                    const Icon(Icons.event, size: 16, color: Colors.grey),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'Tot: ${DateFormat('dd/MM/yyyy').format(endDate)}',
+                                      style: const TextStyle(color: Colors.black87),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ),
-                            child: Text(
-                              '€${totalPrice.toStringAsFixed(2)}',
-                              style: const TextStyle(
-                                color: Colors.blue,
-                                fontWeight: FontWeight.bold,
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.blue.shade50,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                '€${totalPrice.toStringAsFixed(2)}',
+                                style: const TextStyle(
+                                  color: Colors.blue,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                      const Divider(height: 24),
-                      Row(
-                        children: [
-                          const Icon(Icons.calendar_today, size: 16, color: Colors.grey),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Van: ${DateFormat('dd/MM/yyyy').format(startDate)}',
-                            style: const TextStyle(color: Colors.black87),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          const Icon(Icons.event, size: 16, color: Colors.grey),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Tot: ${DateFormat('dd/MM/yyyy').format(endDate)}',
-                            style: const TextStyle(color: Colors.black87),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Status: Bevestigd',
-                            style: TextStyle(
-                              color: Colors.green,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          if (!hasReview)
-                            ElevatedButton(
-                              onPressed: () => _showReviewDialog(context, rental),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.orange,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(horizontal: 12),
-                              ),
-                              child: const Text('Schrijf Recensie'),
-                            )
-                          else
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
                             const Text(
-                              'Beoordeeld',
-                              style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic),
+                              'Status: Bevestigd',
+                              style: TextStyle(
+                                color: Colors.green,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
-                        ],
-                      ),
-                    ],
+                            if (!hasReview)
+                              ElevatedButton(
+                                onPressed: () => _showReviewDialog(context, rental),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.orange,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                                ),
+                                child: const Text('Schrijf Recensie'),
+                              )
+                            else
+                              const Text(
+                                'Beoordeeld',
+                                style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               );
             },
           );
         },
+      ),
+    );
+  }
+
+  void _showDeleteDialog(BuildContext context, String rentalId) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Huur verwijderen'),
+        content: const Text('Weet je zeker dat je deze huur uit je geschiedenis wilt verwijderen?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Annuleren'),
+          ),
+          TextButton(
+            onPressed: () async {
+              await DeviceService().deleteRental(rentalId);
+              if (context.mounted) Navigator.pop(context);
+            },
+            child: const Text('Verwijderen', style: TextStyle(color: Colors.red)),
+          ),
+        ],
       ),
     );
   }
