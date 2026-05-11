@@ -134,35 +134,68 @@ class ProfilePage extends StatelessWidget {
           ),
           Expanded(
             child: StreamBuilder<List<Device>>(
-              // We gebruiken de bestaande getDevices stream
               stream: deviceService.getDevices(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
+              builder: (context, deviceSnapshot) {
+                if (deviceSnapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
 
-                // Filter de lijst zodat we alleen de eigen apparaten zien
-                final myDevices = snapshot.data?.where((d) => d.ownerId == user?.uid).toList() ?? [];
+                // Filter de lijst zodat we alleen de EIGEN EN BESCHIKBARE apparaten zien
+                final myDevices = deviceSnapshot.data?.where((d) => d.ownerId == user?.uid && d.isAvailable).toList() ?? [];
 
                 if (myDevices.isEmpty) {
-                  return const Center(
-                    child: Text('Je biedt nog geen toestellen aan.'),
-                  );
+                  return const Center(child: Text('Je hebt momenteel geen actieve toestellen.'));
                 }
 
-                return ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: myDevices.length,
-                  itemBuilder: (context, index) {
-                    final device = myDevices[index];
-                    return DeviceCard(
-                      device: device,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => DeviceDetailsPage(device: device),
-                          ),
+                return StreamBuilder<List<Map<String, dynamic>>>(
+                  stream: deviceService.getOwnerRentals(),
+                  builder: (context, rentalSnapshot) {
+                    final ownerRentals = rentalSnapshot.data ?? [];
+                    
+                    // Sorteren: Eerst beschikbare toestellen, dan verhuurde op startdatum
+                    myDevices.sort((a, b) {
+                      if (a.isAvailable && !b.isAvailable) return -1;
+                      if (!a.isAvailable && b.isAvailable) return 1;
+                      
+                      if (!a.isAvailable && !b.isAvailable) {
+                        final aRental = ownerRentals.firstWhere((r) => r['deviceId'] == a.id, orElse: () => {});
+                        final bRental = ownerRentals.firstWhere((r) => r['deviceId'] == b.id, orElse: () => {});
+                        
+                        final aStart = (aRental['startDate'] as Timestamp?)?.toDate();
+                        final bStart = (bRental['startDate'] as Timestamp?)?.toDate();
+                        
+                        if (aStart == null) return 1;
+                        if (bStart == null) return -1;
+                        return aStart.compareTo(bStart);
+                      }
+                      return 0;
+                    });
+
+                    return ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      itemCount: myDevices.length,
+                      itemBuilder: (context, index) {
+                        final device = myDevices[index];
+                        final rental = ownerRentals.firstWhere(
+                          (r) => r['deviceId'] == device.id, 
+                          orElse: () => {},
+                        );
+                        
+                        DateTime? startDate = (rental['startDate'] as Timestamp?)?.toDate();
+                        DateTime? endDate = (rental['endDate'] as Timestamp?)?.toDate();
+
+                        return DeviceCard(
+                          device: device,
+                          rentalStartDate: startDate,
+                          rentalEndDate: endDate,
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => DeviceDetailsPage(device: device),
+                              ),
+                            );
+                          },
                         );
                       },
                     );

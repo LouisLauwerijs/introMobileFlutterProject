@@ -3,16 +3,21 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'device_model.dart';
 import 'device_service.dart';
+import 'package:intl/intl.dart';
 
-/// Dit bestand maakt de 'Kaart' (Card) die je ziet in de lijst op de startpagina.
+/// Dit bestand maakt de 'Kaart' (Card) die je ziet in de lijst op de startpagina of profiel.
 class DeviceCard extends StatelessWidget {
   final Device device;
   final VoidCallback onTap;
+  final DateTime? rentalStartDate;
+  final DateTime? rentalEndDate;
 
   const DeviceCard({
     super.key,
     required this.device,
     required this.onTap,
+    this.rentalStartDate,
+    this.rentalEndDate,
   });
 
   // Functie om de naam van de verhuurder op te halen uit Firestore
@@ -79,7 +84,7 @@ class DeviceCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: const Text(
-                        'VERHUURD',
+                        'NIET BESCHIKBAAR',
                         style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10),
                       ),
                     ),
@@ -149,7 +154,28 @@ class DeviceCard extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 4),
+                  if (rentalStartDate != null && rentalEndDate != null) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.orange.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.calendar_month, size: 16, color: Colors.orange),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Verhuurd: ${DateFormat('dd/MM').format(rentalStartDate!)} t/m ${DateFormat('dd/MM').format(rentalEndDate!)}',
+                            style: TextStyle(fontSize: 12, color: Colors.orange.shade900, fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 8),
                   Row(
                     children: [
                       const Icon(Icons.person, size: 14, color: Colors.grey),

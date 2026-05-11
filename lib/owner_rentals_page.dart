@@ -96,17 +96,26 @@ class OwnerRentalsPage extends StatelessWidget {
                           ),
                         ],
                       ),
-                      const Divider(height: 24),
-                      Row(
-                        children: [
-                          const Icon(Icons.calendar_today, size: 16, color: Colors.grey),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Periode: ${DateFormat('dd/MM/yyyy').format(startDate)} - ${DateFormat('dd/MM/yyyy').format(endDate)}',
-                            style: const TextStyle(color: Colors.black87),
-                          ),
-                        ],
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.calendar_month, size: 16, color: Colors.blue),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Huurperiode: ${DateFormat('dd/MM/yyyy').format(startDate)} - ${DateFormat('dd/MM/yyyy').format(endDate)}',
+                              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue),
+                            ),
+                          ],
+                        ),
                       ),
+                      const Divider(height: 24),
                       const SizedBox(height: 16),
                       const Text(
                         'Ontvangen Recensie:',
