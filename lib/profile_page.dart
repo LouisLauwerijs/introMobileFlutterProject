@@ -89,7 +89,7 @@ class ProfilePage extends StatelessWidget {
                           );
                         },
                         icon: const Icon(Icons.history),
-                        label: const Text('Mijn Huren bekijken'),
+                        label: const Text('Mijn gehuurde items bekijken'),
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           shape: RoundedRectangleBorder(

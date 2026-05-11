@@ -18,7 +18,6 @@ class _SettingsPageState extends State<SettingsPage> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _addressController = TextEditingController();
-  String _selectedCurrency = 'EUR';
   bool _isLoading = false;
 
   double? _lat;
@@ -33,7 +32,6 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _showSuggestions = false;
   bool _suppressListener = false; // prevents autocomplete firing when we set text in code
 
-  final List<String> _currencies = ['EUR', 'USD', 'GBP', 'JPY'];
 
   @override
   void initState() {
@@ -281,7 +279,6 @@ class _SettingsPageState extends State<SettingsPage> {
     setState(() {
       _nameController.text = data['name'] ?? '';
       _addressController.text = data['address'] ?? '';
-      _selectedCurrency = data['currency'] ?? 'EUR';
       _lat = (data['lat'] as num?)?.toDouble();
       _lng = (data['lng'] as num?)?.toDouble();
       _city = data['city'];
@@ -306,7 +303,6 @@ class _SettingsPageState extends State<SettingsPage> {
             .set({
           'name': _nameController.text.trim(),
           'address': _addressController.text.trim(),
-          'currency': _selectedCurrency,
           'lat': _lat,
           'lng': _lng,
           'city': _city,

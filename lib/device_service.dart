@@ -140,22 +140,32 @@ class DeviceService {
     }
   }
 
-  // Functie om alle huren van de huidige gebruiker op te halen
+  // Functie om alle gehuurde items van de huidige gebruiker op te halen
   Stream<List<Map<String, dynamic>>> getUserRentals() {
-    String uid = _auth.currentUser!.uid;
-    return _firestore
-        .collection('rentals')
-        .where('renterId', isEqualTo: uid)
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map((snapshot) {
-      return snapshot.docs.map((doc) {
-        final data = doc.data();
-        data['id'] = doc.id;
-        return data;
-      }).toList();
+  String uid = _auth.currentUser!.uid;
+  return _firestore
+      .collection('rentals')
+      .where('renterId', isEqualTo: uid)
+      // removed .orderBy() here — sorting client-side instead
+      .snapshots()
+      .map((snapshot) {
+    final rentals = snapshot.docs.map((doc) {
+      final data = doc.data();
+      data['id'] = doc.id;
+      return data;
+    }).toList();
+
+    // Sort by createdAt client-side — no index needed
+    rentals.sort((a, b) {
+      final aDate = a['createdAt'] as Timestamp?;
+      final bDate = b['createdAt'] as Timestamp?;
+      if (aDate == null || bDate == null) return 0;
+      return bDate.compareTo(aDate); // newest first
     });
-  }
+
+    return rentals;
+  });
+}
 
   // Functie om een recensie toe te voegen
   Future<void> addReview({
