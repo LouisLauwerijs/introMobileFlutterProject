@@ -131,7 +131,7 @@ class _DeviceDetailsPageState extends State<DeviceDetailsPage> {
     }
 
     try {
-      await DeviceService().rentDevice(
+      await DeviceService().requestRental(
         deviceId: widget.device.id,
         deviceName: widget.device.name,
         startDate: _selectedDateRange!.start,
@@ -141,13 +141,13 @@ class _DeviceDetailsPageState extends State<DeviceDetailsPage> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Huurverzoek succesvol verstuurd!')),
+          const SnackBar(content: Text('Huurverzoek verzonden! Wacht op goedkeuring van de eigenaar.')),
         );
         Navigator.pop(context);
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Fout bij huren: $e')),
+        SnackBar(content: Text('Fout bij aanvragen: $e')),
       );
     }
   }
@@ -442,7 +442,7 @@ class _DeviceDetailsPageState extends State<DeviceDetailsPage> {
                         backgroundColor: isOwner ? Colors.red : Colors.blue,
                         foregroundColor: Colors.white,
                       ),
-                      child: Text(isOwner ? 'Toestel Verwijderen' : 'Toestel Huren'),
+                      child: Text(isOwner ? 'Toestel Verwijderen' : 'Huurverzoek Versturen'),
                     ),
                   ),
                 ],
