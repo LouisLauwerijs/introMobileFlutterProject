@@ -56,6 +56,9 @@ class HuurgeschiedenisPage extends StatelessWidget {
               final deviceName = rental['deviceName'] ?? 'Onbekend apparaat';
               final deviceId = rental['deviceId'];
               final hasReview = rental['hasReview'] ?? false;
+              
+              // Je kunt alleen annuleren als de startdatum nog niet is bereikt
+              final bool canCancel = DateTime.now().isBefore(startDate);
 
               return Card(
                 elevation: 2,
@@ -97,10 +100,11 @@ class HuurgeschiedenisPage extends StatelessWidget {
                                 ),
                               ),
                             ),
-                            IconButton(
-                              icon: const Icon(Icons.delete_outline, color: Colors.red),
-                              onPressed: () => _showDeleteDialog(context, rental['id']),
-                            ),
+                            if (!canCancel) // Verwijder knop alleen als je niet meer kunt annuleren
+                              IconButton(
+                                icon: const Icon(Icons.delete_outline, color: Colors.red),
+                                onPressed: () => _showDeleteDialog(context, rental['id']),
+                              ),
                           ],
                         ),
                         const Divider(height: 24),
@@ -156,14 +160,23 @@ class HuurgeschiedenisPage extends StatelessWidget {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text(
-                              'Status: Bevestigd',
+                            Text(
+                              canCancel ? 'Status: Gereserveerd' : 'Status: Bevestigd',
                               style: TextStyle(
-                                color: Colors.green,
+                                color: canCancel ? Colors.orange : Colors.green,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                            if (!hasReview)
+                            if (canCancel)
+                              ElevatedButton(
+                                onPressed: () => _showCancelDialog(context, rental['id'], deviceId),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.red.shade400,
+                                  foregroundColor: Colors.white,
+                                ),
+                                child: const Text('Reservatie Annuleren'),
+                              )
+                            else if (!hasReview)
                               ElevatedButton(
                                 onPressed: () => _showReviewDialog(context, rental),
                                 style: ElevatedButton.styleFrom(
@@ -188,6 +201,34 @@ class HuurgeschiedenisPage extends StatelessWidget {
             },
           );
         },
+      ),
+    );
+  }
+
+  void _showCancelDialog(BuildContext context, String rentalId, String deviceId) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Reservatie Annuleren'),
+        content: const Text('Weet je zeker dat je deze reservatie wilt annuleren? Het toestel wordt dan weer beschikbaar voor anderen.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Nee, behouden'),
+          ),
+          TextButton(
+            onPressed: () async {
+              await DeviceService().cancelRental(rentalId, deviceId);
+              if (context.mounted) {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Reservatie geannuleerd.')),
+                );
+              }
+            },
+            child: const Text('Ja, Annuleren', style: TextStyle(color: Colors.red)),
+          ),
+        ],
       ),
     );
   }
