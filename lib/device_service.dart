@@ -241,6 +241,20 @@ class DeviceService {
     await _firestore.collection('rentals').doc(rentalId).delete();
   }
 
+  // Functie om een reservatie te annuleren
+  Future<void> cancelRental(String rentalId, String deviceId) async {
+    try {
+      // 1. Verwijder de huur uit de 'rentals' collectie
+      await _firestore.collection('rentals').doc(rentalId).delete();
+
+      // 2. Zet het apparaat weer op 'beschikbaar'
+      await updateAvailability(deviceId, true);
+    } catch (e) {
+      print('Fout bij annuleren huur: $e');
+      rethrow;
+    }
+  }
+
   // Functie om één specifiek apparaat op te halen via ID
   Future<Device?> getDeviceById(String deviceId) async {
     try {
