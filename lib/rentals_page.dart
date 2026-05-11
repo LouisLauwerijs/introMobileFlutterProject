@@ -52,6 +52,7 @@ class RentalsPage extends StatelessWidget {
               final endDate = (rental['endDate'] as Timestamp).toDate();
               final totalPrice = rental['totalPrice'] as double;
               final deviceName = rental['deviceName'] ?? 'Onbekend apparaat';
+              final hasReview = rental['hasReview'] ?? false;
 
               return Card(
                 elevation: 2,
@@ -118,12 +119,32 @@ class RentalsPage extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 12),
-                      const Text(
-                        'Status: Bevestigd',
-                        style: TextStyle(
-                          color: Colors.green,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Status: Bevestigd',
+                            style: TextStyle(
+                              color: Colors.green,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          if (!hasReview)
+                            ElevatedButton(
+                              onPressed: () => _showReviewDialog(context, rental),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.orange,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 12),
+                              ),
+                              child: const Text('Schrijf Recensie'),
+                            )
+                          else
+                            const Text(
+                              'Beoordeeld',
+                              style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic),
+                            ),
+                        ],
                       ),
                     ],
                   ),
@@ -133,6 +154,86 @@ class RentalsPage extends StatelessWidget {
           );
         },
       ),
+    );
+  }
+
+  void _showReviewDialog(BuildContext context, Map<String, dynamic> rental) {
+    int selectedRating = 5;
+    final TextEditingController commentController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text('Recensie schrijven'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Hoe was je ervaring met dit apparaat?'),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(5, (index) {
+                      return IconButton(
+                        icon: Icon(
+                          index < selectedRating ? Icons.star : Icons.star_border,
+                          color: Colors.orange,
+                          size: 32,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            selectedRating = index + 1;
+                          });
+                        },
+                      );
+                    }),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: commentController,
+                    maxLines: 3,
+                    decoration: const InputDecoration(
+                      hintText: 'Deel je ervaring...',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Annuleren'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    try {
+                      await DeviceService().addReview(
+                        rentalId: rental['id'],
+                        deviceId: rental['deviceId'],
+                        rating: selectedRating,
+                        comment: commentController.text,
+                      );
+                      if (context.mounted) {
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Bedankt voor je recensie!')),
+                        );
+                      }
+                    } catch (e) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Fout bij plaatsen recensie: $e')),
+                      );
+                    }
+                  },
+                  child: const Text('Verzenden'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 }

@@ -156,4 +156,39 @@ class DeviceService {
       }).toList();
     });
   }
+
+  // Functie om een recensie toe te voegen
+  Future<void> addReview({
+    required String rentalId,
+    required String deviceId,
+    required int rating,
+    required String comment,
+  }) async {
+    try {
+      String uid = _auth.currentUser!.uid;
+
+      // De naam van de huurder ophalen
+      DocumentSnapshot userDoc = await _firestore.collection('users').doc(uid).get();
+      String renterName = (userDoc.data() as Map<String, dynamic>?)?['name'] ?? 'Anoniem';
+
+      // 1. Voeg de recensie toe aan een nieuwe collectie 'reviews'
+      await _firestore.collection('reviews').add({
+        'rentalId': rentalId,
+        'deviceId': deviceId,
+        'renterId': uid,
+        'renterName': renterName,
+        'rating': rating,
+        'comment': comment,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      // 2. Markeer de huur als 'beoordeeld' zodat de knop verdwijnt
+      await _firestore.collection('rentals').doc(rentalId).update({
+        'hasReview': true,
+      });
+    } catch (e) {
+      print('Fout bij toevoegen recensie: $e');
+      rethrow;
+    }
+  }
 }
