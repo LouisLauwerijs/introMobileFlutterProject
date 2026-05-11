@@ -10,9 +10,8 @@
 .history
 .svn/
 .swiftpm/
-lib/secrets.dart
 migrate_working_dir/
-
+local.properties
 # IntelliJ related
 *.iml
 *.ipr
@@ -33,6 +32,7 @@ migrate_working_dir/
 .pub/
 /build/
 /coverage/
+lib/secrets.dart
 
 # Symbolication related
 app.*.symbols

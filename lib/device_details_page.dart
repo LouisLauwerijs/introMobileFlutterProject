@@ -2,12 +2,11 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'device_model.dart';
 import 'device_service.dart';
 import 'package:intl/intl.dart';
 
-/// Dit is de detailpagina van een apparaat. Hier zie je alle informatie uitgebreid.
-/// De pagina wordt geopend wanneer je in de lijst op een apparaat tikt.
 class DeviceDetailsPage extends StatefulWidget {
   final Device device;
 
@@ -19,43 +18,46 @@ class DeviceDetailsPage extends StatefulWidget {
 
 class _DeviceDetailsPageState extends State<DeviceDetailsPage> {
   DateTimeRange? _selectedDateRange;
+  GoogleMapController? _mapController;
 
-  // Functie die de foto op het scherm zet
+  // Haalt de lat/lng rechtstreeks uit het opgeslagen GeoPoint
+  LatLng get _deviceLatLng => LatLng(
+        widget.device.location.latitude,
+        widget.device.location.longitude,
+      );
+
   Widget _buildImage(String photoUrl) {
     if (photoUrl.startsWith('data:image')) {
       try {
         final base64String = photoUrl.split(',').last;
         return Image.memory(
           base64Decode(base64String),
-          height: 300,
+          height: 250,
           width: double.infinity,
-          fit: BoxFit.contain,
-          errorBuilder: (context, error, stackTrace) =>
-              const Icon(Icons.broken_image, size: 300),
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, size: 250),
         );
       } catch (e) {
-        return const Icon(Icons.broken_image, size: 300);
+        return const Icon(Icons.broken_image, size: 250);
       }
     } else {
       return Image.network(
         photoUrl,
-        height: 300,
+        height: 250,
         width: double.infinity,
-        fit: BoxFit.contain,
-        errorBuilder: (context, error, stackTrace) =>
-            const Icon(Icons.broken_image, size: 300),
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, size: 250),
       );
     }
   }
 
-  // Functie om de bevestigingsdialoog te tonen voor het verwijderen
   void _showDeleteConfirmation(BuildContext context) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Toestel Verwijderen'),
-          content: const Text('Weet je zeker dat je dit toestel wilt verwijderen uit de lijst?'),
+          content: const Text('Weet je zeker dat je dit toestel wilt verwijderen?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
@@ -65,8 +67,8 @@ class _DeviceDetailsPageState extends State<DeviceDetailsPage> {
               onPressed: () async {
                 await DeviceService().deleteDevice(widget.device.id);
                 if (context.mounted) {
-                  Navigator.pop(context); // Sluit dialoog
-                  Navigator.pop(context); // Terug naar home
+                  Navigator.pop(context);
+                  Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Toestel succesvol verwijderd')),
                   );
@@ -80,18 +82,15 @@ class _DeviceDetailsPageState extends State<DeviceDetailsPage> {
     );
   }
 
-  // Functie om de naam van de verhuurder op te halen uit Firestore
   Future<String> _getOwnerName(String ownerId) async {
     try {
       final doc = await FirebaseFirestore.instance.collection('users').doc(ownerId).get();
-      final data = doc.data();
-      return data?['name'] ?? 'Onbekende verhuurder';
+      return doc.data()?['name'] ?? 'Onbekende verhuurder';
     } catch (e) {
       return 'Laden...';
     }
   }
 
-  // Functie om een datumperiode te kiezen
   Future<void> _selectDateRange(BuildContext context) async {
     final DateTimeRange? picked = await showDateRangePicker(
       context: context,
@@ -113,15 +112,13 @@ class _DeviceDetailsPageState extends State<DeviceDetailsPage> {
     );
 
     if (picked != null && picked != _selectedDateRange) {
-      setState(() {
-        _selectedDateRange = picked;
-      });
+      setState(() => _selectedDateRange = picked);
     }
   }
 
   double _calculateTotalPrice() {
     if (_selectedDateRange == null) return 0.0;
-    final days = _selectedDateRange!.duration.inDays + 1; // Inclusief einddag
+    final days = _selectedDateRange!.duration.inDays + 1;
     return days * widget.device.price;
   }
 
@@ -162,9 +159,7 @@ class _DeviceDetailsPageState extends State<DeviceDetailsPage> {
     final totalPrice = _calculateTotalPrice();
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.device.category),
-      ),
+      appBar: AppBar(title: Text(widget.device.category)),
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -175,6 +170,7 @@ class _DeviceDetailsPageState extends State<DeviceDetailsPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // ── Categorie & prijs ──────────────────────────────────────
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -197,6 +193,8 @@ class _DeviceDetailsPageState extends State<DeviceDetailsPage> {
                     ],
                   ),
                   const SizedBox(height: 16),
+
+                  // ── Verhuurder ─────────────────────────────────────────────
                   Row(
                     children: [
                       const Icon(Icons.person, color: Colors.blue),
@@ -213,6 +211,8 @@ class _DeviceDetailsPageState extends State<DeviceDetailsPage> {
                     ],
                   ),
                   const SizedBox(height: 16),
+
+                  // ── Naam & beschrijving ────────────────────────────────────
                   Text(
                     widget.device.name,
                     style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
@@ -222,18 +222,59 @@ class _DeviceDetailsPageState extends State<DeviceDetailsPage> {
                     widget.device.description,
                     style: const TextStyle(fontSize: 16),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 24),
+
+                  // ── Locatie sectie met echte kaart ─────────────────────────
+                  const Text(
+                    'Locatie',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
                   Row(
                     children: [
-                      const Icon(Icons.location_on, color: Colors.red),
+                      const Icon(Icons.location_on, color: Colors.red, size: 18),
                       const SizedBox(width: 4),
-                      Text(
-                        widget.device.city,
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      Expanded(
+                        child: Text(
+                          widget.device.locationName.isNotEmpty
+                              ? widget.device.locationName
+                              : widget.device.city,
+                          style: const TextStyle(fontSize: 14, color: Colors.grey),
+                        ),
                       ),
                     ],
                   ),
+                  const SizedBox(height: 12),
+
+                  // Google Map met pin op de opgeslagen GeoPoint coördinaten
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: SizedBox(
+                      height: 200,
+                      child: GoogleMap(
+                        initialCameraPosition: CameraPosition(
+                          target: _deviceLatLng,
+                          zoom: 15,
+                        ),
+                        markers: {
+                          Marker(
+                            markerId: const MarkerId('device_location'),
+                            position: _deviceLatLng,
+                            infoWindow: InfoWindow(title: widget.device.name),
+                          ),
+                        },
+                        onMapCreated: (controller) => _mapController = controller,
+                        myLocationButtonEnabled: false,
+                        zoomControlsEnabled: false,
+                        // Kaart is puur ter info, niet interactief scrollen
+                        scrollGesturesEnabled: false,
+                        zoomGesturesEnabled: false,
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 24),
+
+                  // ── Beschikbaarheid ────────────────────────────────────────
                   const Text(
                     'Beschikbaarheid',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -256,6 +297,8 @@ class _DeviceDetailsPageState extends State<DeviceDetailsPage> {
                     ],
                   ),
                   const SizedBox(height: 24),
+
+                  // ── Huurperiode (alleen voor niet-eigenaar) ────────────────
                   if (!isOwner && widget.device.isAvailable) ...[
                     const Divider(),
                     const SizedBox(height: 8),
@@ -315,7 +358,8 @@ class _DeviceDetailsPageState extends State<DeviceDetailsPage> {
                     ],
                     const SizedBox(height: 24),
                   ],
-                  const SizedBox(height: 16),
+
+                  // ── Actieknop ──────────────────────────────────────────────
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(

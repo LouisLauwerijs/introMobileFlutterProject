@@ -5,12 +5,11 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'secrets.dart';
 import 'device_service.dart';
 
-/// Dit is de pagina waar je een nieuw apparaat kunt aanbieden voor de verhuur.
-/// De gebruiker kan hier alle details invullen, een foto kiezen en de locatie ophalen.
 class AddDevicePage extends StatefulWidget {
   const AddDevicePage({super.key});
 
@@ -19,107 +18,172 @@ class AddDevicePage extends StatefulWidget {
 }
 
 class _AddDevicePageState extends State<AddDevicePage> {
-  // Controleurs om de ingevoerde tekst uit de velden te lezen
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _priceController = TextEditingController();
-  
-  // Standaardwaarden voor het formulier
+  final _addressController = TextEditingController();
+
   String _category = 'Gereedschap';
   XFile? _imageFile;
-  Position? _currentPosition;
+  bool _isLoading = false;
+
+  // Locatiegegevens
+  double? _lat;
+  double? _lng;
   String _city = '';
   String _locationName = '';
-  bool _isLoading = false; // Laat een draaiend wieltje zien tijdens het opslaan
 
-  // De API sleutel wordt nu veilig geladen uit het secrets.dart bestand
-  final String _googleApiKey = Secrets.googleMapsApiKey;
+  // Autocomplete
+  List<Map<String, dynamic>> _suggestions = [];
+  bool _showSuggestions = false;
+  bool _suppressListener = false;
 
-  // De lijst met categorieën waaruit de gebruiker kan kiezen
+  // Kaart
+  GoogleMapController? _mapController;
+  Set<Marker> _markers = {};
+
+  final String _apiKey = Secrets.googleMapsApiKey;
+
   final List<String> _categories = [
-    'Gereedschap',
-    'Tuin',
-    'Keuken',
-    'Elektronica',
-    'Vervoer',
-    'Overig',
+    'Gereedschap', 'Tuin', 'Keuken', 'Elektronica', 'Vervoer', 'Overig',
   ];
 
-  // Functie om de galerij te openen en een foto te kiezen
-  Future<void> _pickImage() async {
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 800, // Maak de foto kleiner om de database niet te zwaar te maken
-      maxHeight: 800,
-      imageQuality: 70, // Verminder de kwaliteit een beetje om de tekst korter te maken
-    );
-    if (pickedFile != null) {
+  @override
+  void initState() {
+    super.initState();
+    _addressController.addListener(_onAddressChanged);
+  }
+
+  @override
+  void dispose() {
+    _addressController.removeListener(_onAddressChanged);
+    _addressController.dispose();
+    _nameController.dispose();
+    _descriptionController.dispose();
+    _priceController.dispose();
+    _mapController?.dispose();
+    super.dispose();
+  }
+
+  // ─── Autocomplete ─────────────────────────────────────────────────────────
+
+  void _onAddressChanged() {
+    if (_suppressListener) return;
+    final query = _addressController.text.trim();
+    if (query.length >= 3) {
+      _fetchSuggestions(query);
+    } else {
       setState(() {
-        _imageFile = pickedFile;
+        _suggestions = [];
+        _showSuggestions = false;
       });
     }
   }
 
-  // Functie die locatiegegevens zoekt bij GPS-coördinaten via Google Maps
-  Future<Map<String, String>> _getLocationDetailsFromCoordinates(double lat, double lng) async {
-    String url = 'https://maps.googleapis.com/maps/api/geocode/json?latlng=$lat,$lng&key=$_googleApiKey';
-    
-    // Op Web moeten we een proxy gebruiken om CORS fouten te voorkomen
-    if (kIsWeb) {
-      url = 'https://api.allorigins.win/raw?url=' + Uri.encodeComponent(url);
-    }
+  Future<void> _fetchSuggestions(String query) async {
+    if (kIsWeb) return; // Werkt niet op web door CORS
+
+    final uri = Uri.parse(
+      'https://maps.googleapis.com/maps/api/place/autocomplete/json'
+      '?input=${Uri.encodeComponent(query)}'
+      '&key=$_apiKey'
+      '&language=nl',
+    );
 
     try {
-      final response = await http.get(Uri.parse(url));
+      final response = await http.get(uri);
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        if (data['status'] == 'OK') {
-          final results = data['results'] as List;
-          String fullAddress = results.isNotEmpty ? results[0]['formatted_address'] : 'Onbekend adres';
-          String city = 'Onbekend';
-
-          for (var result in results) {
-            final addressComponents = result['address_components'] as List;
-            for (var component in addressComponents) {
-              final types = component['types'] as List;
-              if (types.contains('locality')) {
-                city = component['long_name'];
-                break;
-              }
-            }
-            if (city != 'Onbekend') break;
-          }
-          return {'city': city, 'address': fullAddress};
+        if (data['status'] == 'OK' && mounted) {
+          final predictions = data['predictions'] as List;
+          setState(() {
+            _suggestions = predictions
+                .map((p) => {
+                      'placeId': p['place_id'] as String,
+                      'description': p['description'] as String,
+                    })
+                .toList();
+            _showSuggestions = _suggestions.isNotEmpty;
+          });
         }
       }
     } catch (e) {
-      print('Google Geocoding error: $e');
+      debugPrint('Autocomplete error: $e');
     }
-    return {'city': 'Onbekend', 'address': 'Onbekend adres'};
   }
 
-  // Functie om de huidige GPS-locatie van de telefoon op te vragen
-  Future<void> _getCurrentLocation() async {
-    bool serviceEnabled;
-    LocationPermission permission;
+  Future<void> _selectSuggestion(Map<String, dynamic> suggestion) async {
+    _suppressListener = true;
+    _addressController.text = suggestion['description'];
+    _suppressListener = false;
 
-    // Controleren of de locatie-instelling aan staat op de telefoon
-    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    setState(() {
+      _suggestions = [];
+      _showSuggestions = false;
+    });
+
+    await _fetchPlaceDetails(suggestion['placeId']);
+  }
+
+  Future<void> _fetchPlaceDetails(String placeId) async {
+    final uri = Uri.parse(
+      'https://maps.googleapis.com/maps/api/place/details/json'
+      '?place_id=$placeId'
+      '&fields=geometry,formatted_address,address_components'
+      '&key=$_apiKey',
+    );
+
+    try {
+      final response = await http.get(uri);
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['status'] == 'OK') {
+          final result = data['result'];
+          final location = result['geometry']['location'];
+          final lat = (location['lat'] as num).toDouble();
+          final lng = (location['lng'] as num).toDouble();
+
+          String cityName = 'Onbekend';
+          for (var component in result['address_components'] as List) {
+            final types = component['types'] as List;
+            if (types.contains('locality')) {
+              cityName = component['long_name'];
+              break;
+            }
+          }
+
+          setState(() {
+            _lat = lat;
+            _lng = lng;
+            _city = cityName;
+            _locationName = result['formatted_address'];
+          });
+
+          _moveMapTo(lat, lng);
+        }
+      }
+    } catch (e) {
+      debugPrint('Place details error: $e');
+    }
+  }
+
+  // ─── GPS ──────────────────────────────────────────────────────────────────
+
+  Future<void> _getCurrentLocation() async {
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Locatieservices zijn uitgeschakeld.')),
       );
       return;
     }
 
-    // Vragen om toestemming voor het gebruik van de locatie
-    permission = await Geolocator.checkPermission();
+    var permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Locatiepermissie geweigerd.')),
         );
         return;
@@ -128,140 +192,332 @@ class _AddDevicePageState extends State<AddDevicePage> {
 
     setState(() => _isLoading = true);
     try {
-      Position position = await Geolocator.getCurrentPosition();
-      Map<String, String> details = await _getLocationDetailsFromCoordinates(position.latitude, position.longitude);
-
-      setState(() {
-        _currentPosition = position;
-        _city = details['city']!;
-        _locationName = details['address']!;
-        _isLoading = false;
-      });
+      final position = await Geolocator.getCurrentPosition();
+      await _reverseGeocode(position.latitude, position.longitude);
     } catch (e) {
-      setState(() => _isLoading = false);
-      print('Location error: $e');
+      debugPrint('GPS error: $e');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  // Functie die alle gegevens verzamelt en verstuurt naar de database
-  Future<void> _submit() async {
-    // Controleren of alle velden zijn ingevuld en of er een foto en locatie is
-    if (_formKey.currentState!.validate() && _imageFile != null && _currentPosition != null) {
-      setState(() => _isLoading = true);
-      try {
-        await DeviceService().addDevice(
-          name: _nameController.text,
-          description: _descriptionController.text,
-          category: _category,
-          imageFile: _imageFile!,
-          price: double.parse(_priceController.text),
-          location: GeoPoint(_currentPosition!.latitude, _currentPosition!.longitude),
-          city: _city,
-          locationName: _locationName,
-        );
-        Navigator.pop(context); // Terug naar het overzicht na succesvol toevoegen
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Fout bij opslaan: $e')),
-        );
-      } finally {
-        setState(() => _isLoading = false);
+  Future<void> _reverseGeocode(double lat, double lng) async {
+    final uri = Uri.parse(
+      'https://maps.googleapis.com/maps/api/geocode/json'
+      '?latlng=$lat,$lng'
+      '&key=$_apiKey',
+    );
+
+    try {
+      final response = await http.get(uri);
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['status'] == 'OK') {
+          final results = data['results'] as List;
+          final formattedAddress = results.isNotEmpty
+              ? results[0]['formatted_address'] as String
+              : 'Onbekend adres';
+
+          String cityName = 'Onbekend';
+          for (var result in results) {
+            for (var component in result['address_components'] as List) {
+              final types = component['types'] as List;
+              if (types.contains('locality')) {
+                cityName = component['long_name'];
+                break;
+              }
+            }
+            if (cityName != 'Onbekend') break;
+          }
+
+          _suppressListener = true;
+          setState(() {
+            _lat = lat;
+            _lng = lng;
+            _city = cityName;
+            _locationName = formattedAddress;
+            _addressController.text = formattedAddress;
+            _suggestions = [];
+            _showSuggestions = false;
+          });
+          _suppressListener = false;
+
+          _moveMapTo(lat, lng);
+        }
       }
-    } else {
-      // Melding geven als er iets ontbreekt
-      String message = 'Controleer of je een naam, foto en locatie hebt toegevoegd.';
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    } catch (e) {
+      debugPrint('Reverse geocoding error: $e');
     }
   }
+
+  // ─── Kaart ────────────────────────────────────────────────────────────────
+
+  void _moveMapTo(double lat, double lng) {
+    final position = LatLng(lat, lng);
+    setState(() {
+      _markers = {
+        Marker(
+          markerId: const MarkerId('device_location'),
+          position: position,
+        ),
+      };
+    });
+
+    _mapController?.animateCamera(
+      CameraUpdate.newCameraPosition(
+        CameraPosition(target: position, zoom: 15),
+      ),
+    );
+  }
+
+  // ─── Foto ─────────────────────────────────────────────────────────────────
+
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 800,
+      maxHeight: 800,
+      imageQuality: 70,
+    );
+    if (pickedFile != null) {
+      setState(() => _imageFile = pickedFile);
+    }
+  }
+
+  // ─── Opslaan ──────────────────────────────────────────────────────────────
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    if (_imageFile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Kies een foto voor het toestel.')),
+      );
+      return;
+    }
+
+    if (_lat == null || _lng == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Kies een locatie via het zoekveld of GPS.')),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    try {
+      await DeviceService().addDevice(
+        name: _nameController.text,
+        description: _descriptionController.text,
+        category: _category,
+        imageFile: _imageFile!,
+        price: double.parse(_priceController.text.replaceAll(',', '.')),
+        location: GeoPoint(_lat!, _lng!),
+        city: _city,
+        locationName: _locationName,
+      );
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Fout bij opslaan: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  // ─── Build ────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Toestel Verhuren')),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator()) // Wieltje laten draaien tijdens het laden
-          : Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Form(
-                key: _formKey,
-                child: ListView(
-                  children: [
-                    TextFormField(
-                      controller: _nameController,
-                      decoration: const InputDecoration(labelText: 'Naam van het toestel'),
-                      validator: (value) => value == null || value.isEmpty ? 'Vul een naam in' : null,
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _descriptionController,
-                      decoration: const InputDecoration(labelText: 'Beschrijving'),
-                      maxLines: 3,
-                      validator: (value) => value == null || value.isEmpty ? 'Vul een beschrijving in' : null,
-                    ),
-                    const SizedBox(height: 16),
-                    DropdownButtonFormField<String>(
-                      value: _category,
-                      decoration: const InputDecoration(labelText: 'Categorie'),
-                      items: _categories.map((String category) {
-                        return DropdownMenuItem(value: category, child: Text(category));
-                      }).toList(),
-                      onChanged: (value) => setState(() => _category = value!),
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _priceController,
-                      decoration: const InputDecoration(labelText: 'Prijs per dag (€)'),
-                      keyboardType: TextInputType.number,
-                      validator: (value) => value == null || value.isEmpty ? 'Vul een prijs in' : null,
-                    ),
-                    const SizedBox(height: 20),
-                    // Foto kiezen of de geselecteerde foto laten zien
-                    _imageFile == null
-                        ? ElevatedButton.icon(
-                            onPressed: _pickImage,
-                            icon: const Icon(Icons.image),
-                            label: const Text('Kies Foto'),
-                          )
-                        : Column(
-                            children: [
-                              SizedBox(
-                                height: 150,
-                                child: kIsWeb
-                                    ? Image.network(_imageFile!.path, fit: BoxFit.contain)
-                                    : Image.file(io.File(_imageFile!.path), fit: BoxFit.contain),
-                              ),
-                              TextButton(onPressed: _pickImage, child: const Text('Wijzig Foto')),
-                            ],
-                          ),
-                    const SizedBox(height: 20),
-                    // Knop om locatie op te halen of de stadnaam laten zien
-                    _currentPosition == null
-                        ? ElevatedButton.icon(
-                            onPressed: _getCurrentLocation,
-                            icon: const Icon(Icons.location_on),
-                            label: const Text('Haal Locatie Op'),
-                          )
-                        : Row(
-                            children: [
-                              const Icon(Icons.check, color: Colors.green),
-                              const SizedBox(width: 8),
-                              Text('Locatie: $_city'),
-                              const Spacer(),
-                              TextButton(onPressed: _getCurrentLocation, child: const Text('Vernieuw')),
-                            ],
-                          ),
-                    const SizedBox(height: 32),
-                    // De knop om alles definitief op te slaan
-                    ElevatedButton(
-                      onPressed: _submit,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
+          ? const Center(child: CircularProgressIndicator())
+          : GestureDetector(
+              onTap: () => setState(() => _showSuggestions = false),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Form(
+                  key: _formKey,
+                  child: ListView(
+                    children: [
+                      // ── Naam ──────────────────────────────────────────────
+                      TextFormField(
+                        controller: _nameController,
+                        decoration: const InputDecoration(
+                          labelText: 'Naam van het toestel',
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: (v) => (v == null || v.isEmpty) ? 'Vul een naam in' : null,
                       ),
-                      child: const Text('Toestel Toevoegen'),
-                    ),
-                  ],
+                      const SizedBox(height: 16),
+
+                      // ── Beschrijving ───────────────────────────────────────
+                      TextFormField(
+                        controller: _descriptionController,
+                        decoration: const InputDecoration(
+                          labelText: 'Beschrijving',
+                          border: OutlineInputBorder(),
+                        ),
+                        maxLines: 3,
+                        validator: (v) => (v == null || v.isEmpty) ? 'Vul een beschrijving in' : null,
+                      ),
+                      const SizedBox(height: 16),
+
+                      // ── Categorie ──────────────────────────────────────────
+                      DropdownButtonFormField<String>(
+                        value: _category,
+                        decoration: const InputDecoration(
+                          labelText: 'Categorie',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: _categories
+                            .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                            .toList(),
+                        onChanged: (v) => setState(() => _category = v!),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // ── Prijs ──────────────────────────────────────────────
+                      TextFormField(
+                        controller: _priceController,
+                        decoration: const InputDecoration(
+                          labelText: 'Prijs per dag (€)',
+                          border: OutlineInputBorder(),
+                        ),
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        validator: (v) => (v == null || v.isEmpty) ? 'Vul een prijs in' : null,
+                      ),
+                      const SizedBox(height: 20),
+
+                      // ── Foto ───────────────────────────────────────────────
+                      _imageFile == null
+                          ? ElevatedButton.icon(
+                              onPressed: _pickImage,
+                              icon: const Icon(Icons.image),
+                              label: const Text('Kies Foto'),
+                            )
+                          : Column(
+                              children: [
+                                SizedBox(
+                                  height: 150,
+                                  child: kIsWeb
+                                      ? Image.network(_imageFile!.path, fit: BoxFit.contain)
+                                      : Image.file(io.File(_imageFile!.path), fit: BoxFit.contain),
+                                ),
+                                TextButton(
+                                  onPressed: _pickImage,
+                                  child: const Text('Wijzig Foto'),
+                                ),
+                              ],
+                            ),
+                      const SizedBox(height: 20),
+
+                      // ── Locatie sectie ─────────────────────────────────────
+                      const Text(
+                        'Locatie',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
+
+                      // Adres zoekbalk met GPS knop
+                      TextFormField(
+                        controller: _addressController,
+                        decoration: InputDecoration(
+                          labelText: 'Adres zoeken',
+                          hintText: 'Begin met typen...',
+                          prefixIcon: const Icon(Icons.search),
+                          border: const OutlineInputBorder(),
+                          suffixIcon: IconButton(
+                            icon: const Icon(Icons.my_location),
+                            tooltip: 'Huidige locatie gebruiken',
+                            onPressed: _getCurrentLocation,
+                          ),
+                        ),
+                      ),
+
+                      // Autocomplete dropdown
+                      if (_showSuggestions && _suggestions.isNotEmpty)
+                        Material(
+                          elevation: 4,
+                          borderRadius: BorderRadius.circular(8),
+                          child: Column(
+                            children: _suggestions.map((s) {
+                              return ListTile(
+                                leading: const Icon(Icons.location_on, color: Colors.blue),
+                                title: Text(s['description'], style: const TextStyle(fontSize: 13)),
+                                onTap: () => _selectSuggestion(s),
+                              );
+                            }).toList(),
+                          ),
+                        ),
+
+                      const SizedBox(height: 12),
+
+                      // Kaartpreview (verschijnt zodra locatie is gekozen)
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: SizedBox(
+                          height: 200,
+                          child: _lat != null && _lng != null
+                              ? GoogleMap(
+                                  initialCameraPosition: CameraPosition(
+                                    target: LatLng(_lat!, _lng!),
+                                    zoom: 15,
+                                  ),
+                                  markers: _markers,
+                                  onMapCreated: (c) => _mapController = c,
+                                  myLocationButtonEnabled: false,
+                                  zoomControlsEnabled: true,
+                                )
+                              : Container(
+                                  color: Colors.grey[100],
+                                  child: const Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.map_outlined, size: 50, color: Colors.grey),
+                                      SizedBox(height: 8),
+                                      Text(
+                                        'Zoek een adres of gebruik GPS\nom de locatie in te stellen',
+                                        style: TextStyle(color: Colors.grey),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                        ),
+                      ),
+
+                      if (_city.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.check_circle, color: Colors.green, size: 18),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Stad: $_city',
+                                style: const TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                      const SizedBox(height: 32),
+
+                      // ── Opslaan ────────────────────────────────────────────
+                      ElevatedButton(
+                        onPressed: _submit,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                        ),
+                        child: const Text('Toestel Toevoegen'),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
