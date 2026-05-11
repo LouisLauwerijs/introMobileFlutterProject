@@ -5,6 +5,7 @@ import 'device_card.dart';
 import 'add_device_page.dart';
 import 'device_details_page.dart';
 import 'profile_page.dart';
+import 'map_page.dart';
 
 /// De 'HomePage' is nu de container voor de navigatie onderaan.
 class HomePage extends StatefulWidget {
@@ -20,6 +21,7 @@ class _HomePageState extends State<HomePage> {
   // De lijst met schermen waar we tussen wisselen
   final List<Widget> _screens = [
     const DeviceListScreen(),
+    const MapPage(),
     const ProfilePage(),
   ];
 
@@ -31,6 +33,7 @@ class _HomePageState extends State<HomePage> {
         currentIndex: _currentIndex,
         selectedItemColor: Colors.blue,
         unselectedItemColor: Colors.grey,
+        type: BottomNavigationBarType.fixed, // Added to ensure labels show for 3+ items
         onTap: (index) {
           setState(() {
             _currentIndex = index;
@@ -40,6 +43,10 @@ class _HomePageState extends State<HomePage> {
           BottomNavigationBarItem(
             icon: Icon(Icons.home),
             label: 'Home',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.map),
+            label: 'Kaart',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person),
