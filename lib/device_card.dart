@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'device_model.dart';
 import 'device_service.dart';
 import 'package:intl/intl.dart';
+import 'user_detail_page.dart';
 
 /// Dit bestand maakt de 'Kaart' (Card) die je ziet in de lijst op de startpagina of profiel.
 class DeviceCard extends StatelessWidget {
@@ -11,6 +12,8 @@ class DeviceCard extends StatelessWidget {
   final VoidCallback onTap;
   final DateTime? rentalStartDate;
   final DateTime? rentalEndDate;
+  final String? renterName;
+  final String? renterId;
 
   const DeviceCard({
     super.key,
@@ -18,6 +21,8 @@ class DeviceCard extends StatelessWidget {
     required this.onTap,
     this.rentalStartDate,
     this.rentalEndDate,
+    this.renterName,
+    this.renterId,
   });
 
   // Functie om de naam van de verhuurder op te halen uit Firestore
@@ -154,6 +159,8 @@ class DeviceCard extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
+                  
+                  // Informatie over wie het huurt
                   if (rentalStartDate != null && rentalEndDate != null) ...[
                     const SizedBox(height: 8),
                     Container(
@@ -163,18 +170,53 @@ class DeviceCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(color: Colors.orange.shade200),
                       ),
-                      child: Row(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(Icons.calendar_month, size: 16, color: Colors.orange),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Verhuurd: ${DateFormat('dd/MM').format(rentalStartDate!)} t/m ${DateFormat('dd/MM').format(rentalEndDate!)}',
-                            style: TextStyle(fontSize: 12, color: Colors.orange.shade900, fontWeight: FontWeight.bold),
+                          Row(
+                            children: [
+                              const Icon(Icons.calendar_month, size: 16, color: Colors.orange),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Verhuurd: ${DateFormat('dd/MM').format(rentalStartDate!)} t/m ${DateFormat('dd/MM').format(rentalEndDate!)}',
+                                style: TextStyle(fontSize: 12, color: Colors.orange.shade900, fontWeight: FontWeight.bold),
+                              ),
+                            ],
                           ),
+                          if (renterName != null && renterId != null) ...[
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                const Icon(Icons.person_outline, size: 16, color: Colors.orange),
+                                const SizedBox(width: 8),
+                                const Text('Huurder: ', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                                GestureDetector(
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => UserDetailPage(userId: renterId!, userName: renterName!),
+                                      ),
+                                    );
+                                  },
+                                  child: Text(
+                                    renterName!,
+                                    style: const TextStyle(
+                                      fontSize: 12, 
+                                      color: Colors.blue, 
+                                      fontWeight: FontWeight.bold,
+                                      decoration: TextDecoration.underline,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ],
                       ),
                     ),
                   ],
+                  
                   const SizedBox(height: 8),
                   Row(
                     children: [
@@ -207,4 +249,3 @@ class DeviceCard extends StatelessWidget {
     );
   }
 }
-
