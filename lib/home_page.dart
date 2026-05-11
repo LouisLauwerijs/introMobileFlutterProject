@@ -138,6 +138,7 @@ class _DeviceListScreenState extends State<DeviceListScreen> {
               stream: _deviceService.getDevices(
                 category: _selectedCategory,
                 city: _selectedCity.isNotEmpty ? _selectedCity : null,
+                onlyAvailable: true,
               ),
               builder: (context, snapshot) {
                 if (snapshot.hasError) {

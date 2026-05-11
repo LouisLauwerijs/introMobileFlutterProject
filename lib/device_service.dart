@@ -61,9 +61,14 @@ class DeviceService {
   }
 
   // Functie om de lijst met apparaten op te halen (met filters)
-  Stream<List<Device>> getDevices({String? category, String? city}) {
+  Stream<List<Device>> getDevices({String? category, String? city, bool onlyAvailable = false}) {
     // We beginnen bij de verzameling 'devices' in de database
     Query query = _firestore.collection('devices');
+
+    // Als we alleen beschikbare toestellen willen (voor het dashboard)
+    if (onlyAvailable) {
+      query = query.where('isAvailable', isEqualTo: true);
+    }
 
     // Als er een specifieke categorie is gekozen, filteren we daarop via de database
     if (category != null && category.isNotEmpty) {
@@ -115,6 +120,7 @@ class DeviceService {
     try {
       String uid = _auth.currentUser!.uid;
 
+      // 1. Voeg de huur toe aan de 'rentals' collectie
       await _firestore.collection('rentals').add({
         'deviceId': deviceId,
         'deviceName': deviceName,
@@ -124,6 +130,10 @@ class DeviceService {
         'totalPrice': totalPrice,
         'createdAt': FieldValue.serverTimestamp(),
       });
+
+      // 2. Zet het apparaat op 'niet beschikbaar' zodat het van het dashboard verdwijnt
+      await updateAvailability(deviceId, false);
+      
     } catch (e) {
       print('Fout bij huren apparaat: $e');
       rethrow;
