@@ -1,0 +1,111 @@
+===========================================================
+PRESENTATIE GIDS: RENTING APP (PEERBY-STYLE)
+===========================================================
+
+Deze gids biedt een gedetailleerd overzicht van alle functies, methoden en de architectuur van de applicatie voor je presentatie.
+
+-----------------------------------------------------------
+1. OVERZICHT VAN DE APPLICATIE
+-----------------------------------------------------------
+De app is een "Peer-to-Peer" (P2P) leenplatform waar gebruikers toestellen (gereedschap, keukengerei, vervoer, etc.) aan elkaar kunnen verhuren of uitlenen binnen hun eigen stad.
+
+-----------------------------------------------------------
+2. BELANGRIJKSTE FUNCTIES (FUNCTIONALITEITEN)
+-----------------------------------------------------------
+
+A. Authenticatie (Inloggen & Registreren)
+- Gebruikers kunnen een account aanmaken met e-mail en wachtwoord.
+- De gegevens worden veilig opgeslagen via Firebase Authentication.
+- Bij registratie wordt een profiel aangemaakt in de Firestore database om de naam en andere gegevens bij te houden.
+
+B. Dashboard & Zoeken (Home)
+- Toont een lijst van alle beschikbare toestellen.
+- Filteren op Categorie: Snel schakelen tussen gereedschap, tuin, elektronica, etc.
+- Filteren op Stad: Gebruikers kunnen zoeken op hun eigen stad of omgeving.
+- Automatische filtering: Alleen toestellen die op 'isAvailable: true' staan, verschijnen hier.
+
+C. Kaartweergave (Map)
+- Integratie met Google Maps.
+- Gebruikers kunnen op een kaart zien waar toestellen zich bevinden (gebaseerd op opgeslagen coördinaten).
+
+D. Toestel Toevoegen
+- Gebruikers kunnen zelf items aanbieden.
+- Foto: Gebruik van image_picker, foto wordt omgezet naar Base64-string voor eenvoudige opslag.
+- Locatie: Je kunt een locatie kiezen die wordt opgeslagen als een GeoPoint (breedte- en lengtegraad).
+
+E. Het Huur-Aanvraag Systeem (De "Request Flow")
+Dit is de kern van de app. Het werkt niet met directe verhuur, maar met een aanvraagproces:
+1. Huurder selecteert datums in de DeviceDetailsPage.
+2. Systeem berekent automatisch de totale prijs (prijs per dag * aantal dagen).
+3. Huurder stuurt een "Huurverzoek" (status: 'pending').
+4. Eigenaar krijgt een melding.
+5. Eigenaar accepteert of weigert.
+6. Bij acceptatie: Toestel wordt 'isAvailable: false' en verdwijnt van het dashboard.
+7. Bij weigering: Toestel blijft beschikbaar voor anderen.
+
+F. Meldingen Systeem (Notifications)
+- Een centraal tabblad voor alle interactie.
+- Inkomende aanvragen: Voor eigenaren om te reageren.
+- Reacties: Voor huurders om te zien of hun verzoek is goedgekeurd.
+- Datum-alerts: Automatische meldingen op de start- en einddatum van de huurperiode.
+
+G. Profielbeheer & Geschiedenis
+- Mijn Profiel: Overzicht van je eigen profiel en je actieve aanbiedingen.
+- Huurgeschiedenis: Overzicht van alles wat JIJ hebt gehuurd. Bevat de optie om reservaties te annuleren (vóór de startdatum) en om recensies te schrijven.
+- Mijn Verhuur: Een overzicht van alles wat jij aan ANDEREN hebt uitgeleend, inclusief de verdiende bedragen en de ontvangen feedback.
+
+H. Recensies (Reviews)
+- Na afloop van een huur kunnen gebruikers 1-5 sterren en commentaar achterlaten.
+- Gemiddelde scores zijn zichtbaar op de kaarten en detailpagina's voor maximale transparantie.
+
+-----------------------------------------------------------
+3. TECHNISCHE METHODEN & LOGICA (DeviceService.dart)
+-----------------------------------------------------------
+
+Hier zijn de belangrijkste programmeer-logica methoden uitgelegd:
+
+- addDevice(): Slaat een nieuw item op met foto (Base64), GeoPoint en eigenaar-informatie.
+- getDevices(): Gebruikt een Firestore Stream met '.where()' filters voor categorie en beschikbaarheid.
+- requestRental(): Maakt een document aan in de 'rentals' collectie met status 'pending'.
+- handleRentalRequest(): Verandert de status van een huur en werkt de 'isAvailable' status van het toestel bij.
+- getNotifications(): Een complexe stream die verschillende soorten meldingen filtert en sorteert op basis van de huidige gebruiker (owner of renter).
+- cancelRental(): Verwijdert een huur-document en zet het toestel direct weer op 'isAvailable: true'.
+- addReview(): Voegt feedback toe en markeert de huur als 'hasReview' om dubbele recensies te voorkomen.
+
+-----------------------------------------------------------
+4. MOGELIJKE VRAGEN VAN DE DOCENT (Q&A)
+-----------------------------------------------------------
+
+Vraag 1: Waarom heb je gekozen voor een aanvraag-systeem (pending) in plaats van directe huur?
+Antwoord: Dit is veiliger en realistischer voor een P2P platform. De eigenaar moet kunnen controleren of hij het item op die momenten echt kan missen, en het voorkomt dat mensen zomaar items "claimen" zonder interactie.
+
+Vraag 2: Hoe ga je om met de opslag van afbeeldingen?
+Antwoord: In dit prototype worden foto's omgezet naar Base64-strings. Dit is handig omdat we geen aparte Firebase Storage bucket hoeven in te stellen, maar voor een productie-app zouden we Firebase Storage gebruiken met URL-verwijzingen om de database (Firestore) niet te zwaar te maken.
+
+Vraag 3: Hoe voorkom je dat een item twee keer tegelijk verhuurd wordt?
+Antwoord: Zodra een aanvraag wordt geaccepteerd, wordt 'isAvailable' op 'false' gezet. De getDevices-methode op het dashboard filtert alle items waar 'isAvailable' false is eruit, waardoor ze onzichtbaar worden voor andere huurders.
+
+Vraag 4: Hoe werken de meldingen voor de start- en einddatum?
+Antwoord: De getNotifications-methode vergelijkt de huidige systeemdatum met de 'startDate' en 'endDate' in de 'rentals' collectie. Als deze overeenkomen, wordt er on-the-fly een 'date_alert' melding gegenereerd in de lijst.
+
+Vraag 5: Hoe heb je de sortering op het profiel aangepakt?
+Antwoord: Ik gebruik een aangepaste sorteer-functie (.sort()) die eerst kijkt naar de beschikbaarheid (beschikbaar bovenop) en daarna naar de startdatum voor de verhuurde items. Dit zorgt voor een overzichtelijke lijst voor de eigenaar.
+
+Vraag 6: Wat gebeurt er als een gebruiker een huur annuleert?
+Antwoord: De methode cancelRental wordt aangeroepen. Deze verwijdert de huur uit de database en zet de status van het fysieke item direct terug op 'isAvailable: true', zodat het weer op het dashboard verschijnt.
+
+Vraag 7: Hoe bereken je de totale prijs van een huurperiode?
+Antwoord: We gebruiken de DateTimeRange picker van Flutter. We trekken de startdatum van de einddatum af om het aantal dagen te krijgen (.duration.inDays + 1) en vermenigvuldigen dit met de dagprijs van het toestel.
+
+Vraag 8: Waarom heb je Firestore gekozen als database?
+Antwoord: Firestore is een NoSQL database die perfect werkt met real-time Streams. Hierdoor worden meldingen en updates (zoals een geaccepteerd verzoek) direct zichtbaar bij de gebruiker zonder dat de pagina ververst hoeft te worden.
+
+Vraag 9: Hoe zorg je ervoor dat reviews alleen voor de juiste toestellen getoond worden?
+Antwoord: Elke review bevat een 'deviceId'. In de DeviceDetailsPage laden we een stream die specifiek filtert op dat unieke ID, zodat je alleen de relevante ervaringen ziet.
+
+Vraag 10: Hoe heb je de stad-filter 'case-insensitive' gemaakt (niet hoofdlettergevoelig)?
+Antwoord: Omdat Firestore beperkte zoekmogelijkheden heeft voor tekst, halen we de lijst op en gebruiken we de .where() functie in Dart met .toLowerCase() en .contains() om flexibel te kunnen zoeken.
+
+-----------------------------------------------------------
+EINDE GIDS - VEEL SUCCES MET JE PRESENTATIE!
+-----------------------------------------------------------

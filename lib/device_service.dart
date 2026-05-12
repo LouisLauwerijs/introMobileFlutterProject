@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:rxdart/rxdart.dart';
 import 'device_model.dart';
 
 /// Deze 'Service' regelt alle communicatie met de database (Firestore).
@@ -222,79 +223,178 @@ class DeviceService {
   Stream<List<Map<String, dynamic>>> getNotifications() {
     String uid = _auth.currentUser!.uid;
     
-    // We combineren aanvragen die jij moet goedkeuren (als eigenaar)
-    // en antwoorden op aanvragen die jij hebt gedaan (als huurder)
-    return _firestore
-        .collection('rentals')
-        .snapshots()
-        .map((snapshot) {
-      final allRentals = snapshot.docs.map((doc) {
-        final data = doc.data();
-        data['id'] = doc.id;
-        return data;
-      }).toList();
+    // We combineren:
+    // 1. Aanvragen en status-updates uit de 'rentals' collectie (on-the-fly)
+    // 2. Nieuwe berichten uit de 'notifications' collectie
+    return Rx.combineLatest2(
+      _firestore.collection('rentals').snapshots(),
+      _firestore.collection('notifications').where('receiverId', isEqualTo: uid).snapshots(),
+      (QuerySnapshot rentalSnap, QuerySnapshot notifySnap) {
+        List<Map<String, dynamic>> notifications = [];
+        DateTime nu = DateTime.now();
 
-      List<Map<String, dynamic>> notifications = [];
-      DateTime nu = DateTime.now();
+        // --- DEEL 1: RENTALS LOGICA (bestaand) ---
+        final allRentals = rentalSnap.docs.map((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          data['id'] = doc.id;
+          return data;
+        }).toList();
 
-      for (var item in allRentals) {
-        String status = item['status'] ?? 'pending';
-        DateTime start = (item['startDate'] as Timestamp).toDate();
-        DateTime eind = (item['endDate'] as Timestamp).toDate();
+        for (var item in allRentals) {
+          String status = item['status'] ?? 'pending';
+          DateTime? start = (item['startDate'] as Timestamp?)?.toDate();
+          DateTime? eind = (item['endDate'] as Timestamp?)?.toDate();
 
-        // 1. Inkomende aanvragen (Eigenaar krijgt melding)
-        if (item['ownerId'] == uid && status == 'pending') {
+          if (item['ownerId'] == uid && status == 'pending') {
+            notifications.add({
+              ...item,
+              'type': 'incoming_request',
+              'msg': '${item['renterName']} wilt je ${item['deviceName']} huren.',
+              'sortDate': item['createdAt'],
+            });
+          }
+
+          if (item['renterId'] == uid && (status == 'accepted' || status == 'denied')) {
+            notifications.add({
+              ...item,
+              'type': 'request_response',
+              'msg': 'Je aanvraag voor ${item['deviceName']} is ${status == 'accepted' ? 'geaccepteerd!' : 'geweigerd.'}',
+              'sortDate': item['respondedAt'] ?? item['createdAt'],
+            });
+          }
+
+          if (status == 'accepted' && start != null && eind != null) {
+            if (start.day == nu.day && start.month == nu.month && start.year == nu.year) {
+              notifications.add({
+                ...item,
+                'type': 'date_alert',
+                'msg': 'Vandaag begint de huur van ${item['deviceName']}!',
+                'sortDate': Timestamp.fromDate(start),
+              });
+            }
+            if (eind.day == nu.day && eind.month == nu.month && eind.year == nu.year) {
+              notifications.add({
+                ...item,
+                'type': 'date_alert',
+                'msg': 'Vandaag is de laatste dag voor de huur van ${item['deviceName']}.',
+                'sortDate': Timestamp.fromDate(eind),
+              });
+            }
+          }
+        }
+
+        // --- DEEL 2: BERICHTEN LOGICA (nieuw) ---
+        for (var doc in notifySnap.docs) {
+          final data = doc.data() as Map<String, dynamic>;
           notifications.add({
-            ...item,
-            'type': 'incoming_request',
-            'msg': '${item['renterName']} wilt je ${item['deviceName']} huren.',
-            'sortDate': item['createdAt'],
+            ...data,
+            'id': doc.id,
+            'type': 'message',
+            'msg': 'Nieuw bericht van ${data['senderName']}: ${data['text']}',
+            'sortDate': data['createdAt'],
           });
         }
 
-        // 2. Antwoorden op jouw aanvragen (Huurder krijgt melding)
-        if (item['renterId'] == uid && (status == 'accepted' || status == 'denied')) {
-          notifications.add({
-            ...item,
-            'type': 'request_response',
-            'msg': 'Je aanvraag voor ${item['deviceName']} is ${status == 'accepted' ? 'geaccepteerd!' : 'geweigerd.'}',
-            'sortDate': item['respondedAt'] ?? item['createdAt'],
-          });
-        }
+        // Sorteer op datum (nieuwste eerst)
+        notifications.sort((a, b) {
+          final aDate = a['sortDate'] as Timestamp?;
+          final bDate = b['sortDate'] as Timestamp?;
+          if (aDate == null || bDate == null) return 0;
+          return bDate.compareTo(aDate);
+        });
 
-        // 3. Start/Eind meldingen (Voor zowel huurder als eigenaar)
-        if (status == 'accepted') {
-          // Check of het vandaag de startdatum is
-          if (start.day == nu.day && start.month == nu.month && start.year == nu.year) {
-            notifications.add({
-              ...item,
-              'type': 'date_alert',
-              'msg': 'Vandaag begint de huur van ${item['deviceName']}!',
-              'sortDate': Timestamp.fromDate(start),
-            });
-          }
-          // Check of het vandaag de einddatum is
-          if (eind.day == nu.day && eind.month == nu.month && eind.year == nu.year) {
-            notifications.add({
-              ...item,
-              'type': 'date_alert',
-              'msg': 'Vandaag is de laatste dag voor de huur van ${item['deviceName']}.',
-              'sortDate': Timestamp.fromDate(eind),
-            });
-          }
-        }
-      }
+        return notifications;
+      },
+    );
+  }
 
-      // Sorteer op datum (nieuwste eerst)
-      notifications.sort((a, b) {
-        final aDate = a['sortDate'] as Timestamp?;
-        final bDate = b['sortDate'] as Timestamp?;
-        if (aDate == null || bDate == null) return 0;
-        return bDate.compareTo(aDate);
+  // --- CHAT FUNCTIES ---
+
+  // Functie om een bericht te versturen
+  Future<void> sendMessage({
+    required String rentalId,
+    required String text,
+    required String receiverId,
+    required String deviceName,
+  }) async {
+    try {
+      String uid = _auth.currentUser!.uid;
+      
+      // Naam van de verzender ophalen
+      DocumentSnapshot userDoc = await _firestore.collection('users').doc(uid).get();
+      String senderName = (userDoc.data() as Map<String, dynamic>?)?['name'] ?? 'Iemand';
+
+      // 1. Bericht opslaan in een subcollectie van de huur
+      await _firestore.collection('rentals').doc(rentalId).collection('messages').add({
+        'senderId': uid,
+        'text': text,
+        'timestamp': FieldValue.serverTimestamp(),
       });
 
-      return notifications;
-    });
+      // 2. Een melding aanmaken voor de ontvanger
+      await _firestore.collection('notifications').add({
+        'receiverId': receiverId,
+        'senderName': senderName,
+        'deviceName': deviceName,
+        'rentalId': rentalId,
+        'text': text,
+        'type': 'message',
+        'createdAt': FieldValue.serverTimestamp(),
+        'isRead': false,
+      });
+    } catch (e) {
+      print('Fout bij versturen bericht: $e');
+      rethrow;
+    }
+  }
+
+  // Stream om berichten van een specifieke huur op te halen
+  Stream<QuerySnapshot> getMessages(String rentalId) {
+    return _firestore
+        .collection('rentals')
+        .doc(rentalId)
+        .collection('messages')
+        .orderBy('timestamp', descending: true)
+        .snapshots();
+  }
+
+  // Functie om een actieve huur/aanvraag te vinden en info over de andere partij te krijgen
+  Future<Map<String, dynamic>?> findActiveRentalInfo(String deviceId) async {
+    String uid = _auth.currentUser!.uid;
+    
+    // Zoek naar een huur waar de huidige gebruiker de huurder is voor dit toestel
+    final snap = await _firestore
+        .collection('rentals')
+        .where('deviceId', isEqualTo: deviceId)
+        .where('renterId', isEqualTo: uid)
+        .limit(1)
+        .get();
+        
+    if (snap.docs.isNotEmpty) {
+      final doc = snap.docs.first;
+      return {
+        'rentalId': doc.id,
+        'otherUserId': doc.data()['ownerId'],
+      };
+    }
+    
+    // Als huurder niks gevonden, ben je misschien de eigenaar?
+    final snapOwner = await _firestore
+        .collection('rentals')
+        .where('deviceId', isEqualTo: deviceId)
+        .where('ownerId', isEqualTo: uid)
+        .limit(1)
+        .get();
+
+    if (snapOwner.docs.isNotEmpty) {
+      final doc = snapOwner.docs.first;
+      return {
+        'rentalId': doc.id,
+        'otherUserId': doc.data()['renterId'],
+      };
+    }
+
+    return null;
   }
 
   // Functie om alle huren te zien die ANDEREN bij JOU hebben gedaan (geaccepteerd of teruggebracht)

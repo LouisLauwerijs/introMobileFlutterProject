@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'device_model.dart';
 import 'device_service.dart';
+import 'chat_page.dart';
 import 'package:intl/intl.dart';
 
 class DeviceDetailsPage extends StatefulWidget {
@@ -19,6 +20,24 @@ class DeviceDetailsPage extends StatefulWidget {
 class _DeviceDetailsPageState extends State<DeviceDetailsPage> {
   DateTimeRange? _selectedDateRange;
   GoogleMapController? _mapController;
+  String? _activeRentalId;
+  String? _otherUserId;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkActiveRental();
+  }
+
+  Future<void> _checkActiveRental() async {
+    final info = await DeviceService().findActiveRentalInfo(widget.device.id);
+    if (mounted && info != null) {
+      setState(() {
+        _activeRentalId = info['rentalId'];
+        _otherUserId = info['otherUserId'];
+      });
+    }
+  }
 
   // Haalt de lat/lng rechtstreeks uit het opgeslagen GeoPoint
   LatLng get _deviceLatLng => LatLng(
@@ -429,7 +448,35 @@ class _DeviceDetailsPageState extends State<DeviceDetailsPage> {
                     const SizedBox(height: 24),
                   ],
 
-                  // ── Actieknop ──────────────────────────────────────────────
+                  // ── Actieknoppen ──────────────────────────────────────────────
+                  if (_activeRentalId != null) ...[
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ChatPage(
+                                rentalId: _activeRentalId!,
+                                otherUserId: _otherUserId!,
+                                deviceName: widget.device.name,
+                              ),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.chat),
+                        label: Text(isOwner ? 'Chat met huurder' : 'Chat met verhuurder'),
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          backgroundColor: Colors.green,
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 12),
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(

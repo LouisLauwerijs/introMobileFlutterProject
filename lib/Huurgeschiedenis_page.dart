@@ -5,6 +5,8 @@ import 'device_details_page.dart';
 import 'device_model.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'chat_page.dart';
+
 class HuurgeschiedenisPage extends StatelessWidget {
   const HuurgeschiedenisPage({super.key});
 
@@ -102,11 +104,30 @@ class HuurgeschiedenisPage extends StatelessWidget {
                                 ),
                               ),
                             ),
-                            if (isFinished) // Verwijder knop alleen als de huurperiode voorbij is
-                              IconButton(
-                                icon: const Icon(Icons.delete_outline, color: Colors.red),
-                                onPressed: () => _showDeleteDialog(context, rental['id'], deviceId),
-                              ),
+                            Row(
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.chat_outlined, color: Colors.green),
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => ChatPage(
+                                          rentalId: rental['id'],
+                                          otherUserId: rental['ownerId'],
+                                          deviceName: deviceName,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                                if (isFinished) // Verwijder knop alleen als de huurperiode voorbij is
+                                  IconButton(
+                                    icon: const Icon(Icons.delete_outline, color: Colors.red),
+                                    onPressed: () => _showDeleteDialog(context, rental['id'], deviceId),
+                                  ),
+                              ],
+                            ),
                           ],
                         ),
                         const Divider(height: 24),
