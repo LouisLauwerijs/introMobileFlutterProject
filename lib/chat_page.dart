@@ -51,16 +51,7 @@ class _ChatPageState extends State<ChatPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Chat', style: TextStyle(fontSize: 18)),
-            Text(
-              widget.deviceName,
-              style: const TextStyle(fontSize: 12, color: Colors.white70),
-            ),
-          ],
-        ),
+        title: Text('Chat over ${widget.deviceName}'),
       ),
       body: Column(
         children: [

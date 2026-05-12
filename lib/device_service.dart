@@ -70,8 +70,24 @@ class DeviceService {
         'returnedAt': FieldValue.serverTimestamp(),
       });
 
-      // 2. Update de beschikbaarheid van het apparaat (voorheen werd dit verwijderd)
+      // 2. Update de beschikbaarheid van het apparaat
       await updateAvailability(deviceId, makeAvailable);
+
+      // 3. Verwijder alle berichten van deze chat (omdat het item is ingeleverd)
+      final messagesSnap = await _firestore.collection('rentals').doc(rentalId).collection('messages').get();
+      for (var doc in messagesSnap.docs) {
+        await doc.reference.delete();
+      }
+
+      // 4. Verwijder alle bericht-meldingen gerelateerd aan deze huur
+      final notifySnap = await _firestore.collection('notifications')
+          .where('rentalId', isEqualTo: rentalId)
+          .where('type', isEqualTo: 'message')
+          .get();
+      for (var doc in notifySnap.docs) {
+        await doc.reference.delete();
+      }
+      
     } catch (e) {
       print('Fout bij goedkeuren inlevering: $e');
       rethrow;
@@ -362,11 +378,12 @@ class DeviceService {
   Future<Map<String, dynamic>?> findActiveRentalInfo(String deviceId) async {
     String uid = _auth.currentUser!.uid;
     
-    // Zoek naar een huur waar de huidige gebruiker de huurder is voor dit toestel
+    // Zoek naar een huur waar de huidige gebruiker de huurder is voor dit toestel (niet returned)
     final snap = await _firestore
         .collection('rentals')
         .where('deviceId', isEqualTo: deviceId)
         .where('renterId', isEqualTo: uid)
+        .where('status', whereIn: ['pending', 'accepted'])
         .limit(1)
         .get();
         
@@ -383,6 +400,7 @@ class DeviceService {
         .collection('rentals')
         .where('deviceId', isEqualTo: deviceId)
         .where('ownerId', isEqualTo: uid)
+        .where('status', whereIn: ['pending', 'accepted'])
         .limit(1)
         .get();
 

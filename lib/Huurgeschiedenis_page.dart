@@ -106,21 +106,22 @@ class HuurgeschiedenisPage extends StatelessWidget {
                             ),
                             Row(
                               children: [
-                                IconButton(
-                                  icon: const Icon(Icons.chat_outlined, color: Colors.green),
-                                  onPressed: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => ChatPage(
-                                          rentalId: rental['id'],
-                                          otherUserId: rental['ownerId'],
-                                          deviceName: deviceName,
+                                if (!isFinished)
+                                  IconButton(
+                                    icon: const Icon(Icons.chat_outlined, color: Colors.green),
+                                    onPressed: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => ChatPage(
+                                            rentalId: rental['id'],
+                                            otherUserId: rental['ownerId'],
+                                            deviceName: deviceName,
+                                          ),
                                         ),
-                                      ),
-                                    );
-                                  },
-                                ),
+                                      );
+                                    },
+                                  ),
                                 if (isFinished) // Verwijder knop alleen als de huurperiode voorbij is
                                   IconButton(
                                     icon: const Icon(Icons.delete_outline, color: Colors.red),

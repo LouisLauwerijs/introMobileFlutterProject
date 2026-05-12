@@ -99,7 +99,7 @@ class NotificationsPage extends StatelessWidget {
       );
     }
 
-    if (type == 'message' || type == 'request_response') {
+    if (type == 'message') {
       return IconButton(
         icon: const Icon(Icons.chat, color: Colors.blue),
         onPressed: () {
@@ -108,9 +108,9 @@ class NotificationsPage extends StatelessWidget {
             MaterialPageRoute(
               builder: (context) => ChatPage(
                 rentalId: item['rentalId'],
-                otherUserId: item['type'] == 'message' 
-                  ? (FirebaseAuth.instance.currentUser!.uid == item['receiverId'] ? (item['senderId'] ?? 'TODO') : item['receiverId'])
-                  : (FirebaseAuth.instance.currentUser!.uid == item['ownerId'] ? item['renterId'] : item['ownerId']),
+                otherUserId: FirebaseAuth.instance.currentUser!.uid == item['receiverId'] 
+                    ? (item['senderId'] ?? 'TODO') 
+                    : item['receiverId'],
                 deviceName: item['deviceName'] ?? 'Toestel',
               ),
             ),
