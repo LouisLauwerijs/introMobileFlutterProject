@@ -103,7 +103,7 @@ class HuurgeschiedenisPage extends StatelessWidget {
                             if (!canCancel) // Verwijder knop alleen als je niet meer kunt annuleren
                               IconButton(
                                 icon: const Icon(Icons.delete_outline, color: Colors.red),
-                                onPressed: () => _showDeleteDialog(context, rental['id']),
+                                onPressed: () => _showDeleteDialog(context, rental['id'], deviceId),
                               ),
                           ],
                         ),
@@ -158,15 +158,17 @@ class HuurgeschiedenisPage extends StatelessWidget {
                         ),
                         const SizedBox(height: 12),
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              canCancel ? 'Status: Gereserveerd' : 'Status: Bevestigd',
-                              style: TextStyle(
-                                color: canCancel ? Colors.orange : Colors.green,
-                                fontWeight: FontWeight.bold,
+                            Expanded(
+                              child: Text(
+                                canCancel ? 'Status: Gereserveerd' : 'Status: Bevestigd',
+                                style: TextStyle(
+                                  color: canCancel ? Colors.orange : Colors.green,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
+                            const SizedBox(width: 8),
                             if (canCancel)
                               ElevatedButton(
                                 onPressed: () => _showCancelDialog(context, rental['id'], deviceId),
@@ -233,12 +235,12 @@ class HuurgeschiedenisPage extends StatelessWidget {
     );
   }
 
-  void _showDeleteDialog(BuildContext context, String rentalId) {
+  void _showDeleteDialog(BuildContext context, String rentalId, String deviceId) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Huur verwijderen'),
-        content: const Text('Weet je zeker dat je deze huur uit je geschiedenis wilt verwijderen?'),
+        content: const Text('Weet je zeker dat je deze huur uit je geschiedenis wilt verwijderen? Het toestel wordt dan weer beschikbaar voor anderen.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -246,7 +248,7 @@ class HuurgeschiedenisPage extends StatelessWidget {
           ),
           TextButton(
             onPressed: () async {
-              await DeviceService().deleteRental(rentalId);
+              await DeviceService().deleteRental(rentalId, deviceId);
               if (context.mounted) Navigator.pop(context);
             },
             child: const Text('Verwijderen', style: TextStyle(color: Colors.red)),

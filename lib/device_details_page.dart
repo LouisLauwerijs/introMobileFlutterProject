@@ -194,78 +194,7 @@ class _DeviceDetailsPageState extends State<DeviceDetailsPage> {
                   ),
                   const SizedBox(height: 24),
 
-                  // ── Recensies ──────────────────────────────────────────────
-                  const Divider(),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Recensies',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 16),
-                  StreamBuilder<List<Map<String, dynamic>>>(
-                    stream: DeviceService().getDeviceReviews(widget.device.id),
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(child: CircularProgressIndicator());
-                      }
-
-                      final reviews = snapshot.data ?? [];
-
-                      if (reviews.isEmpty) {
-                        return const Text(
-                          'Er zijn nog geen recensies voor dit apparaat.',
-                          style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic),
-                        );
-                      }
-
-                      return ListView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: reviews.length,
-                        itemBuilder: (context, index) {
-                          final review = reviews[index];
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 16.0),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Row(
-                                      children: List.generate(5, (starIndex) {
-                                        return Icon(
-                                          starIndex < (review['rating'] as int)
-                                              ? Icons.star
-                                              : Icons.star_border,
-                                          color: Colors.orange,
-                                          size: 16,
-                                        );
-                                      }),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      review['renterName'] ?? 'Anoniem',
-                                      style: const TextStyle(fontWeight: FontWeight.bold),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  review['comment'] ?? '',
-                                  style: const TextStyle(fontSize: 14),
-                                ),
-                                const Divider(),
-                              ],
-                            ),
-                          );
-                        },
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 24),
-
-                  // ── Actieknop ──────────────────────────────────────────────
-
+                  // ── Eigenaar Info ──────────────────────────────────────────
                   Row(
                     children: [
                       const Icon(Icons.person, color: Colors.blue),
@@ -366,6 +295,76 @@ class _DeviceDetailsPageState extends State<DeviceDetailsPage> {
                         ),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 24),
+
+                  // ── Recensies ──────────────────────────────────────────────
+                  const Divider(),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Recensies',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 16),
+                  StreamBuilder<List<Map<String, dynamic>>>(
+                    stream: DeviceService().getDeviceReviews(widget.device.id),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+
+                      final reviews = snapshot.data ?? [];
+
+                      if (reviews.isEmpty) {
+                        return const Text(
+                          'Er zijn nog geen recensies voor dit apparaat.',
+                          style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic),
+                        );
+                      }
+
+                      return ListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: reviews.length,
+                        itemBuilder: (context, index) {
+                          final review = reviews[index];
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 16.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Row(
+                                      children: List.generate(5, (starIndex) {
+                                        return Icon(
+                                          starIndex < (review['rating'] as int)
+                                              ? Icons.star
+                                              : Icons.star_border,
+                                          color: Colors.orange,
+                                          size: 16,
+                                        );
+                                      }),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      review['renterName'] ?? 'Anoniem',
+                                      style: const TextStyle(fontWeight: FontWeight.bold),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  review['comment'] ?? '',
+                                  style: const TextStyle(fontSize: 14),
+                                ),
+                                const Divider(),
+                              ],
+                            ),
+                          );
+                        },
+                      );
+                    },
                   ),
                   const SizedBox(height: 24),
 

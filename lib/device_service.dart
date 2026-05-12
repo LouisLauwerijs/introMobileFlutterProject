@@ -347,8 +347,17 @@ class DeviceService {
   }
 
   // Functie om een specifieke huur te verwijderen uit de geschiedenis
-  Future<void> deleteRental(String rentalId) async {
-    await _firestore.collection('rentals').doc(rentalId).delete();
+  Future<void> deleteRental(String rentalId, String deviceId) async {
+    try {
+      // 1. Verwijder de huur uit de 'rentals' collectie
+      await _firestore.collection('rentals').doc(rentalId).delete();
+
+      // 2. Zet het apparaat weer op 'beschikbaar' zodat anderen het kunnen zien
+      await updateAvailability(deviceId, true);
+    } catch (e) {
+      print('Fout bij verwijderen huur: $e');
+      rethrow;
+    }
   }
 
   // Functie om een reservatie te annuleren
