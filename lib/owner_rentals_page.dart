@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'device_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'user_detail_page.dart';
+import 'chat_page.dart';
 
 class OwnerRentalsPage extends StatelessWidget {
   const OwnerRentalsPage({super.key});
@@ -122,6 +123,22 @@ class OwnerRentalsPage extends StatelessWidget {
                               ),
                             ),
                           ),
+                          if (rental['status'] != 'returned')
+                            IconButton(
+                              icon: const Icon(Icons.chat_outlined, color: Colors.green),
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => ChatPage(
+                                      rentalId: rental['id'],
+                                      otherUserId: renterId,
+                                      deviceName: deviceName,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
                           Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 8,
