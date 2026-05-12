@@ -60,6 +60,23 @@ class DeviceService {
     }
   }
 
+  // Functie voor de eigenaar om de inlevering goed te keuren
+  Future<void> approveReturn(String rentalId, String deviceId, bool makeAvailable) async {
+    try {
+      // 1. Markeer de huur als 'returned' (voltooid en ingeleverd)
+      await _firestore.collection('rentals').doc(rentalId).update({
+        'status': 'returned',
+        'returnedAt': FieldValue.serverTimestamp(),
+      });
+
+      // 2. Update de beschikbaarheid van het apparaat (voorheen werd dit verwijderd)
+      await updateAvailability(deviceId, makeAvailable);
+    } catch (e) {
+      print('Fout bij goedkeuren inlevering: $e');
+      rethrow;
+    }
+  }
+
   // Functie om de lijst met apparaten op te halen (met filters)
   Stream<List<Device>> getDevices({String? category, String? city, bool onlyAvailable = false}) {
     // We beginnen bij de verzameling 'devices' in de database
@@ -175,13 +192,13 @@ class DeviceService {
     }
   }
 
-  // Functie om alle huren van de huidige gebruiker op te halen (alleen geaccepteerde voor de geschiedenis)
+  // Functie om alle huren van de huidige gebruiker op te halen (geaccepteerd of teruggebracht voor de geschiedenis)
   Stream<List<Map<String, dynamic>>> getUserRentals() {
     String uid = _auth.currentUser!.uid;
     return _firestore
         .collection('rentals')
         .where('renterId', isEqualTo: uid)
-        .where('status', isEqualTo: 'accepted')
+        .where('status', whereIn: ['accepted', 'returned'])
         .snapshots()
         .map((snapshot) {
       final rentals = snapshot.docs.map((doc) {
@@ -280,13 +297,13 @@ class DeviceService {
     });
   }
 
-  // Functie om alle huren te zien die ANDEREN bij JOU hebben gedaan (geaccepteerd)
+  // Functie om alle huren te zien die ANDEREN bij JOU hebben gedaan (geaccepteerd of teruggebracht)
   Stream<List<Map<String, dynamic>>> getOwnerRentals() {
     String uid = _auth.currentUser!.uid;
     return _firestore
         .collection('rentals')
         .where('ownerId', isEqualTo: uid)
-        .where('status', isEqualTo: 'accepted')
+        .where('status', whereIn: ['accepted', 'returned'])
         .snapshots()
         .map((snapshot) {
       final rentals = snapshot.docs.map((doc) {

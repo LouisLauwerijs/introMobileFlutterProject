@@ -7,7 +7,7 @@ import 'device_model.dart';
 import 'device_card.dart';
 import 'device_details_page.dart';
 import 'settings_page.dart';
-import 'rentals_page.dart';
+import 'Huurgeschiedenis_page.dart';
 import 'owner_rentals_page.dart';
 
 class ProfilePage extends StatelessWidget {
@@ -208,7 +208,7 @@ class ProfilePage extends StatelessWidget {
                       itemBuilder: (context, index) {
                         final device = myDevices[index];
                         final rental = ownerRentals.firstWhere(
-                          (r) => r['deviceId'] == device.id, 
+                          (r) => r['deviceId'] == device.id && r['status'] == 'accepted', 
                           orElse: () => {},
                         );
                         

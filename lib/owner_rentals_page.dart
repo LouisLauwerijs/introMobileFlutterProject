@@ -7,6 +7,48 @@ import 'user_detail_page.dart';
 class OwnerRentalsPage extends StatelessWidget {
   const OwnerRentalsPage({super.key});
 
+  void _showApproveReturnDialog(BuildContext context, String rentalId, String deviceId, String deviceName) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Inlevering Goedkeuren'),
+        content: Text('Je gaat de inlevering van "$deviceName" goedkeuren. Wil je dit toestel hierna opnieuw beschikbaar stellen voor verhuur op het homescherm?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Annuleren'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              await DeviceService().approveReturn(rentalId, deviceId, false);
+              if (context.mounted) {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Inlevering goedgekeurd. Toestel is nu niet meer zichtbaar voor anderen.')),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange, foregroundColor: Colors.white),
+            child: const Text('Nee, niet meer verhuren'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              await DeviceService().approveReturn(rentalId, deviceId, true);
+              if (context.mounted) {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Inlevering goedgekeurd. Toestel is weer beschikbaar!')),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
+            child: const Text('Ja, opnieuw beschikbaar'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final DeviceService deviceService = DeviceService();
@@ -96,11 +138,44 @@ class OwnerRentalsPage extends StatelessWidget {
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      // Huurder informatie
+                            ),
+                            ],
+                            ),
+                            const SizedBox(height: 12),
+                            // Status en Goedkeur knop
+                            Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                            Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: rental['status'] == 'returned' ? Colors.blue.shade100 : Colors.orange.shade100,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              rental['status'] == 'returned' ? 'Teruggebracht' : 'In bezit bij huurder',
+                              style: TextStyle(
+                                color: rental['status'] == 'returned' ? Colors.blue.shade900 : Colors.orange.shade900,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            ),
+                            ),
+                            if (rental['status'] != 'returned')
+                            ElevatedButton.icon(
+                              onPressed: () => _showApproveReturnDialog(context, rental['id'], deviceId, deviceName),
+                              icon: const Icon(Icons.check_circle_outline, size: 18),
+                              label: const Text('Inlevering Goedkeuren'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 12),
+                              ),
+                            ),
+                            ],
+                            ),
+                            const SizedBox(height: 12),
+                            // Huurder informatie
                       Row(
                         children: [
                           const Icon(Icons.person_outline, size: 16, color: Colors.grey),

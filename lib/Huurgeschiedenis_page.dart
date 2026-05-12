@@ -59,6 +59,8 @@ class HuurgeschiedenisPage extends StatelessWidget {
               
               // Je kunt alleen annuleren als de startdatum nog niet is bereikt
               final bool canCancel = DateTime.now().isBefore(startDate);
+              // Je kunt alleen verwijderen uit geschiedenis als de huurperiode voorbij is
+              final bool isFinished = DateTime.now().isAfter(endDate);
 
               return Card(
                 elevation: 2,
@@ -100,7 +102,7 @@ class HuurgeschiedenisPage extends StatelessWidget {
                                 ),
                               ),
                             ),
-                            if (!canCancel) // Verwijder knop alleen als je niet meer kunt annuleren
+                            if (isFinished) // Verwijder knop alleen als de huurperiode voorbij is
                               IconButton(
                                 icon: const Icon(Icons.delete_outline, color: Colors.red),
                                 onPressed: () => _showDeleteDialog(context, rental['id'], deviceId),
@@ -161,9 +163,13 @@ class HuurgeschiedenisPage extends StatelessWidget {
                           children: [
                             Expanded(
                               child: Text(
-                                canCancel ? 'Status: Gereserveerd' : 'Status: Bevestigd',
+                                canCancel 
+                                    ? 'Status: Gereserveerd' 
+                                    : (isFinished ? 'Status: Voltooid' : 'Status: In gebruik'),
                                 style: TextStyle(
-                                  color: canCancel ? Colors.orange : Colors.green,
+                                  color: canCancel 
+                                      ? Colors.orange 
+                                      : (isFinished ? Colors.green : Colors.blue),
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
