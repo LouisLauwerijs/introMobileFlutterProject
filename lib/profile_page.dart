@@ -171,11 +171,11 @@ class ProfilePage extends StatelessWidget {
                   return const Center(child: CircularProgressIndicator());
                 }
 
-                // Filter de lijst zodat we alleen de EIGEN EN BESCHIKBARE apparaten zien
-                final myDevices = deviceSnapshot.data?.where((d) => d.ownerId == user?.uid && d.isAvailable).toList() ?? [];
+                // Filter de lijst zodat we alleen de EIGEN apparaten zien (beschikbaar en niet-beschikbaar)
+                final myDevices = deviceSnapshot.data?.where((d) => d.ownerId == user?.uid).toList() ?? [];
 
                 if (myDevices.isEmpty) {
-                  return const Center(child: Text('Je hebt momenteel geen actieve toestellen.'));
+                  return const Center(child: Text('Je hebt momenteel geen toestellen toegevoegd.'));
                 }
 
                 return StreamBuilder<List<Map<String, dynamic>>>(
@@ -183,22 +183,10 @@ class ProfilePage extends StatelessWidget {
                   builder: (context, rentalSnapshot) {
                     final ownerRentals = rentalSnapshot.data ?? [];
                     
-                    // Sorteren: Eerst beschikbare toestellen, dan verhuurde op startdatum
+                    // Sorteren: Eerst beschikbare toestellen, dan de rest
                     myDevices.sort((a, b) {
                       if (a.isAvailable && !b.isAvailable) return -1;
                       if (!a.isAvailable && b.isAvailable) return 1;
-                      
-                      if (!a.isAvailable && !b.isAvailable) {
-                        final aRental = ownerRentals.firstWhere((r) => r['deviceId'] == a.id, orElse: () => {});
-                        final bRental = ownerRentals.firstWhere((r) => r['deviceId'] == b.id, orElse: () => {});
-                        
-                        final aStart = (aRental['startDate'] as Timestamp?)?.toDate();
-                        final bStart = (bRental['startDate'] as Timestamp?)?.toDate();
-                        
-                        if (aStart == null) return 1;
-                        if (bStart == null) return -1;
-                        return aStart.compareTo(bStart);
-                      }
                       return 0;
                     });
 
@@ -207,30 +195,64 @@ class ProfilePage extends StatelessWidget {
                       itemCount: myDevices.length,
                       itemBuilder: (context, index) {
                         final device = myDevices[index];
-                        final rental = ownerRentals.firstWhere(
+                        final activeRental = ownerRentals.firstWhere(
                           (r) => r['deviceId'] == device.id && r['status'] == 'accepted', 
                           orElse: () => {},
                         );
                         
-                        DateTime? startDate = (rental['startDate'] as Timestamp?)?.toDate();
-                        DateTime? endDate = (rental['endDate'] as Timestamp?)?.toDate();
-                        String? rName = rental['renterName'];
-                        String? rId = rental['renterId'];
+                        DateTime? startDate = (activeRental['startDate'] as Timestamp?)?.toDate();
+                        DateTime? endDate = (activeRental['endDate'] as Timestamp?)?.toDate();
+                        String? rName = activeRental['renterName'];
+                        String? rId = activeRental['renterId'];
 
-                        return DeviceCard(
-                          device: device,
-                          rentalStartDate: startDate,
-                          rentalEndDate: endDate,
-                          renterName: rName,
-                          renterId: rId,
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => DeviceDetailsPage(device: device),
+                        // Een toestel is 'unlisted' als het niet beschikbaar is en NIET momenteel verhuurd is
+                        bool isUnlisted = !device.isAvailable && activeRental.isEmpty;
+
+                        return Column(
+                          children: [
+                            DeviceCard(
+                              device: device,
+                              rentalStartDate: startDate,
+                              rentalEndDate: endDate,
+                              renterName: rName,
+                              renterId: rId,
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => DeviceDetailsPage(device: device),
+                                  ),
+                                );
+                              },
+                            ),
+                            if (isUnlisted)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 16),
+                                child: SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton.icon(
+                                    onPressed: () async {
+                                      await deviceService.updateAvailability(device.id, true);
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(content: Text('${device.name} is weer beschikbaar!')),
+                                        );
+                                      }
+                                    },
+                                    icon: const Icon(Icons.visibility),
+                                    label: const Text('Terug op homepagina zetten'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.green,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(vertical: 12),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                    ),
+                                  ),
+                                ),
                               ),
-                            );
-                          },
+                          ],
                         );
                       },
                     );
