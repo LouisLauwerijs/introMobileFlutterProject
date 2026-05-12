@@ -41,17 +41,54 @@ class _HomePageState extends State<HomePage> {
             _currentIndex = index;
           });
         },
-        items: const [
-          BottomNavigationBarItem(
+        items: [
+          const BottomNavigationBarItem(
             icon: Icon(Icons.home),
             label: 'Home',
           ),
-          BottomNavigationBarItem(
+          const BottomNavigationBarItem(
             icon: Icon(Icons.map),
             label: 'Kaart',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.notifications),
+            icon: StreamBuilder<List<Map<String, dynamic>>>(
+              stream: DeviceService().getNotifications(),
+              builder: (context, snapshot) {
+                final unreadCount = snapshot.data?.where((n) => n['isRead'] == false).length ?? 0;
+                
+                return Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    const Icon(Icons.notifications),
+                    if (unreadCount > 0)
+                      Positioned(
+                        right: -4,
+                        top: -4,
+                        child: Container(
+                          padding: const EdgeInsets.all(2),
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          constraints: const BoxConstraints(
+                            minWidth: 16,
+                            minHeight: 16,
+                          ),
+                          child: Text(
+                            '$unreadCount',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
             label: 'Meldingen',
           ),
           BottomNavigationBarItem(

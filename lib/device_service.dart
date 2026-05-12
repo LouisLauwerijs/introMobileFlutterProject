@@ -173,6 +173,7 @@ class DeviceService {
         'endDate': Timestamp.fromDate(endDate),
         'totalPrice': totalPrice,
         'status': 'pending', // Wacht op goedkeuring
+        'isReadOwner': false, // Nieuw: eigenaar heeft deze aanvraag nog niet gezien
         'createdAt': FieldValue.serverTimestamp(),
       });
       
@@ -193,6 +194,7 @@ class DeviceService {
         await _firestore.collection('rentals').doc(rentalId).update({
           'status': 'accepted',
           'respondedAt': FieldValue.serverTimestamp(),
+          'isReadRenter': false, // Nieuw
         });
         // 2. Zet het apparaat op onbeschikbaar
         await updateAvailability(deviceId, false);
@@ -201,6 +203,7 @@ class DeviceService {
         await _firestore.collection('rentals').doc(rentalId).update({
           'status': 'denied',
           'respondedAt': FieldValue.serverTimestamp(),
+          'isReadRenter': false, // Nieuw
         });
       }
     } catch (e) {
@@ -235,13 +238,29 @@ class DeviceService {
     });
   }
 
+  // Functie om een melding als gelezen te markeren
+  Future<void> markNotificationAsRead(Map<String, dynamic> item) async {
+    try {
+      String type = item['type'];
+      String id = item['id'];
+
+      if (type == 'message') {
+        await _firestore.collection('notifications').doc(id).update({'isRead': true});
+      } else if (type == 'incoming_request') {
+        await _firestore.collection('rentals').doc(id).update({'isReadOwner': true});
+      } else if (type == 'request_response') {
+        await _firestore.collection('rentals').doc(id).update({'isReadRenter': true});
+      }
+      // date_alert heeft geen database-veld om te updaten in deze simpele versie
+    } catch (e) {
+      print('Fout bij markeren als gelezen: $e');
+    }
+  }
+
   // Functie om alle meldingen en aanvragen op te halen
   Stream<List<Map<String, dynamic>>> getNotifications() {
     String uid = _auth.currentUser!.uid;
     
-    // We combineren:
-    // 1. Aanvragen en status-updates uit de 'rentals' collectie (on-the-fly)
-    // 2. Nieuwe berichten uit de 'notifications' collectie
     return Rx.combineLatest2(
       _firestore.collection('rentals').snapshots(),
       _firestore.collection('notifications').where('receiverId', isEqualTo: uid).snapshots(),
@@ -249,7 +268,6 @@ class DeviceService {
         List<Map<String, dynamic>> notifications = [];
         DateTime nu = DateTime.now();
 
-        // --- DEEL 1: RENTALS LOGICA (bestaand) ---
         final allRentals = rentalSnap.docs.map((doc) {
           final data = doc.data() as Map<String, dynamic>;
           data['id'] = doc.id;
@@ -267,6 +285,7 @@ class DeviceService {
               'type': 'incoming_request',
               'msg': '${item['renterName']} wilt je ${item['deviceName']} huren.',
               'sortDate': item['createdAt'],
+              'isRead': item['isReadOwner'] ?? true, // Als het er niet staat, beschouwen we het als gelezen (voor oude data)
             });
           }
 
@@ -276,30 +295,35 @@ class DeviceService {
               'type': 'request_response',
               'msg': 'Je aanvraag voor ${item['deviceName']} is ${status == 'accepted' ? 'geaccepteerd!' : 'geweigerd.'}',
               'sortDate': item['respondedAt'] ?? item['createdAt'],
+              'isRead': item['isReadRenter'] ?? true,
             });
           }
 
           if (status == 'accepted' && start != null && eind != null) {
-            if (start.day == nu.day && start.month == nu.month && start.year == nu.year) {
+            // Voor datum alerts houden we het simpel: ze zijn "gelezen" als de dag voorbij is
+            bool isToday = start.day == nu.day && start.month == nu.month && start.year == nu.year;
+            if (isToday) {
               notifications.add({
                 ...item,
                 'type': 'date_alert',
                 'msg': 'Vandaag begint de huur van ${item['deviceName']}!',
                 'sortDate': Timestamp.fromDate(start),
+                'isRead': false, 
               });
             }
-            if (eind.day == nu.day && eind.month == nu.month && eind.year == nu.year) {
+            bool isEndToday = eind.day == nu.day && eind.month == nu.month && eind.year == nu.year;
+            if (isEndToday) {
               notifications.add({
                 ...item,
                 'type': 'date_alert',
                 'msg': 'Vandaag is de laatste dag voor de huur van ${item['deviceName']}.',
                 'sortDate': Timestamp.fromDate(eind),
+                'isRead': false,
               });
             }
           }
         }
 
-        // --- DEEL 2: BERICHTEN LOGICA (nieuw) ---
         for (var doc in notifySnap.docs) {
           final data = doc.data() as Map<String, dynamic>;
           notifications.add({
@@ -308,10 +332,10 @@ class DeviceService {
             'type': 'message',
             'msg': 'Nieuw bericht van ${data['senderName']}: ${data['text']}',
             'sortDate': data['createdAt'],
+            'isRead': data['isRead'] ?? false,
           });
         }
 
-        // Sorteer op datum (nieuwste eerst)
         notifications.sort((a, b) {
           final aDate = a['sortDate'] as Timestamp?;
           final bDate = b['sortDate'] as Timestamp?;

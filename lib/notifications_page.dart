@@ -54,19 +54,32 @@ class NotificationsPage extends StatelessWidget {
               final String type = item['type'];
               final String msg = item['msg'];
               final Timestamp? sortDate = item['sortDate'];
+              final bool isRead = item['isRead'] ?? true;
 
               return Card(
-                elevation: 2,
+                elevation: isRead ? 2 : 4,
                 margin: const EdgeInsets.only(bottom: 12),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
+                  side: isRead ? BorderSide.none : const BorderSide(color: Colors.blue, width: 2),
                 ),
+                color: isRead ? null : Colors.blue.shade50,
                 child: ListTile(
+                  onTap: () async {
+                    if (!isRead) {
+                      await deviceService.markNotificationAsRead(item);
+                    }
+                  },
                   leading: CircleAvatar(
                     backgroundColor: _getBgColor(type),
                     child: Icon(_getIcon(type), color: Colors.white),
                   ),
-                  title: Text(msg),
+                  title: Text(
+                    msg,
+                    style: TextStyle(
+                      fontWeight: isRead ? FontWeight.normal : FontWeight.bold,
+                    ),
+                  ),
                   subtitle: sortDate != null 
                     ? Text(DateFormat('dd/MM HH:mm').format(sortDate.toDate()))
                     : null,
@@ -89,11 +102,21 @@ class NotificationsPage extends StatelessWidget {
         children: [
           IconButton(
             icon: const Icon(Icons.check, color: Colors.green),
-            onPressed: () => _handleRequest(context, service, item, true),
+            onPressed: () async {
+              await service.markNotificationAsRead(item);
+              if (context.mounted) {
+                _handleRequest(context, service, item, true);
+              }
+            },
           ),
           IconButton(
             icon: const Icon(Icons.close, color: Colors.red),
-            onPressed: () => _handleRequest(context, service, item, false),
+            onPressed: () async {
+              await service.markNotificationAsRead(item);
+              if (context.mounted) {
+                _handleRequest(context, service, item, false);
+              }
+            },
           ),
         ],
       );
@@ -102,19 +125,22 @@ class NotificationsPage extends StatelessWidget {
     if (type == 'message') {
       return IconButton(
         icon: const Icon(Icons.chat, color: Colors.blue),
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => ChatPage(
-                rentalId: item['rentalId'],
-                otherUserId: FirebaseAuth.instance.currentUser!.uid == item['receiverId'] 
-                    ? (item['senderId'] ?? 'TODO') 
-                    : item['receiverId'],
-                deviceName: item['deviceName'] ?? 'Toestel',
+        onPressed: () async {
+          await service.markNotificationAsRead(item);
+          if (context.mounted) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => ChatPage(
+                  rentalId: item['rentalId'],
+                  otherUserId: FirebaseAuth.instance.currentUser!.uid == item['receiverId'] 
+                      ? (item['senderId'] ?? 'TODO') 
+                      : item['receiverId'],
+                  deviceName: item['deviceName'] ?? 'Toestel',
+                ),
               ),
-            ),
-          );
+            );
+          }
         },
       );
     }
